@@ -1,0 +1,70 @@
+{
+  "mode": "range",
+  "client_name": "Ray Frank",
+  "cover_subtitle": "A 53m² pool-side deck + wraparound (Preliminary Range) — built by Endure.",
+  "prepared_for": "Ray Frank",
+  "location": "North Coogee",
+  "proposal_date": "June 2026",
+  "status_label": "Preliminary Proposal",
+  "eyebrow_tag": "Preliminary Proposal · Range Pricing",
+  "range": {
+    "options": [
+      {
+        "label": "MoistureShield Vision · Cathedral Stone",
+        "image": "moisture.jpg",
+        "size_label": "53m² pool deck + wraparound",
+        "price_low_inc_gst": 48502,
+        "price_high_inc_gst": 52503,
+        "price_low_ex_gst": 44093,
+        "price_high_ex_gst": 47730,
+        "spec_line": "Vision 140×25 grooved boards · CAMO hidden fixings · H3 pine subframe · picture-frame border · pool-adjacent zone"
+      }
+    ],
+    "alt_materials": [
+      {
+        "name": "MoistureShield Meridian",
+        "note": "Same subframe. Same install. Same warranty structure. Different board grade.",
+        "delta": "Approximately $5,515 lower inc GST if chosen."
+      }
+    ],
+    "scope_items": [
+      {"label": "Project Requirements — PM · Working drawings · Site cleaning", "value": "Included"},
+      {"label": "Supply &amp; Install — Deck 53m² (Vision Cathedral Stone + H3 subframe)", "value": "See above"},
+      {"label": "Demolition — Existing deck · Pool fence removal &amp; reinstall · Level grading · Skip bins", "value": "$2,600 – $3,200", "strong": true},
+      {"label": "Pool Skimmer Lid", "value": "Included"},
+      {"label": "Concrete Footings — 34 × stirrup footings, 20kg premix", "value": "Included"}
+    ],
+    "preliminary_note": "This is a preliminary range, not a fixed quote. Numbers are informed by measured site visit, verified material rates and current plans. Pool-adjacent zone: H3 pine to H4 upgrade for the 10 pool-side joists is a $200-300 option — discussed on-site. Next step: select a design service below to move to plan finalisation. Fixed price with locked scope returned within 5 business days of plan sign-off.",
+    "consult_fee_paid": 250,
+    "design_service_tiers": [
+      {"name": "Working Drawings", "description": "Plans + quantities — enough detail to lock scope and return a fixed price.", "price_ex_gst": 800, "credit_consult": true},
+      {"name": "Design Pack", "description": "Plans, 3D renders + moodboard — see it before you build it.", "price_ex_gst": 2200, "credit_consult": false},
+      {"name": "Landscape Concept Design", "description": "Full outdoor concept across the whole site — deck, landscaping and hardscape planned as one.", "price_ex_gst": 3500, "credit_consult": true}
+    ]
+  },
+  "finance": {
+    "wk_low": 52, "wk_high": 102,
+    "rows": [
+      {"label": "Endure Install · Composite Deck", "sub": "$51,540 – $58,593 range", "wk3": 1468, "wk5": 965, "wk7": 751}
+    ]
+  },
+  "project_run": {
+    "lead": "From acceptance to handover. Payment schedule applies to the fixed-price contract (returned post-plans).",
+    "steps": [
+      {"num": "01", "title": "Acceptance", "body": "Verbal acceptance of preliminary range + selected design service fee moves your project to plan-drawing stage."},
+      {"num": "02", "title": "Pre-start meeting", "body": "Around 3 weeks before build, your Project Manager runs through site and build specifics with you on site. Triggers the 35% pre-start claim."},
+      {"num": "03", "title": "Materials ordered", "body": "Once the pre-start meeting is signed off, we order materials."},
+      {"num": "04", "title": "Materials delivered", "body": "Materials land on site. Triggers the 30% materials claim."},
+      {"num": "05", "title": "Build starts", "body": "Build commences. Daily updates from site through to handover."},
+      {"num": "06", "title": "Subframe complete", "body": "Posts, bearers, joists installed and tape-protected. Triggers the 25% structural claim."},
+      {"num": "07", "title": "Handover", "body": "Walk-through, care guide, warranty handover. Final 5% balance due on handover."}
+    ],
+    "payment_schedule": [
+      {"pct": 5, "label": "Deposit on acceptance"},
+      {"pct": 35, "label": "Pre-start meeting"},
+      {"pct": 30, "label": "Materials delivered"},
+      {"pct": 25, "label": "Structural complete"},
+      {"pct": 5, "label": "Balance on handover"}
+    ]
+  }
+}

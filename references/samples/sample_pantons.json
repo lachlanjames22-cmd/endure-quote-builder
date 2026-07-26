@@ -1,0 +1,67 @@
+{
+  "mode": "fixed",
+  "client_name": "Daniel Pantons",
+  "cover_subtitle": "A 20m² composite deck in Evalast Infinity — built by Endure.",
+  "prepared_for": "Daniel Pantons",
+  "location": "Perth",
+  "proposal_date": "June 2026",
+  "status_label": "First Pass Proposal",
+  "eyebrow_tag": "First Pass Proposal · Deck",
+  "fixed": {
+    "your_project": {
+      "summary_line": "A 20m² composite deck in Evalast Infinity — built by Endure. Total area 20m². 2.5 build days.",
+      "image": "evainf.jpg",
+      "price_inc_gst": 13724.70,
+      "spec_label": "Single deck · Composite · 20m²",
+      "description": "Merbau deck across both areas. H4 bearers, H3 joists, concrete footings, oil finish. 8 build days bundled — efficient overheads, single project window.",
+      "bullets": [
+        "Evalast Infinity 140mm composite decking — premium hardwood, both areas",
+        "H4 bearers (90×90) — heavier subframe for longer service",
+        "H3 joists (90×45) — properly sized and spaced",
+        "Concrete footings — 20kg premix, 2 bags per hole",
+        "Oil finish — protected before handover",
+        "Deck plans — drawn and shared before we start"
+      ],
+      "zones": [
+        {"name": "Top Deck · 20m²", "sub": "2.5 build days", "body": "Main deck zone."},
+        {"name": "—", "sub": "", "body": "Standard residential composite deck."}
+      ],
+      "footnote": "Single build window keeps the job clean and efficient."
+    },
+    "package_label": "Endure Install — Composite Deck (20m²)",
+    "cost_lines": [
+      {"label": "Project Requirements", "desc": "Project Management · Working Drawings · Site Prep · Site Cleaning", "amount": 1000},
+      {"label": "Supply &amp; Install — Composite Deck (20m²)", "desc": "H4 bearers · H3 joists · Concrete footings · Evalast Infinity 140mm composite decking · Oil finish · Front + Rear areas", "amount": 11477.00}
+    ],
+    "subtotal_ex_gst": 12477.00,
+    "total_inc_gst": 13724.70,
+    "included": "All timber complies with engineering. H4 bearers, H3 joists, concrete footings. Evalast Infinity 140mm composite decking with hidden fixings. Project management, working drawings, site prep + site cleaning.",
+    "excluded": "Painting or staining. Local council approval (if required, separate quote). Electrical work (lighting, fans, power). Railings or stairs (if needed, separate quote).",
+    "deposit_pct": 5
+  },
+  "finance": {
+    "wk_low": 52, "wk_high": 102,
+    "rows": [
+      {"label": "Endure Install · Composite Deck", "sub": "$13,724.70 inc GST", "wk3": 102, "wk5": 67, "wk7": 52}
+    ]
+  },
+  "project_run": {
+    "lead": "From acceptance to handover. Payment is split into five claims tied to real milestones.",
+    "steps": [
+      {"num": "01", "title": "Acceptance", "body": "Verbal acceptance and 5% deposit confirms your project and locks the build window."},
+      {"num": "02", "title": "Pre-start meeting", "body": "Around 3 weeks before build, your Project Manager runs through site and build specifics with you on site. Triggers the 25% pre-start claim."},
+      {"num": "03", "title": "Materials ordered", "body": "Once the pre-start meeting is signed off, we order materials."},
+      {"num": "04", "title": "Materials delivered", "body": "Materials land on site. Triggers the 25% materials claim."},
+      {"num": "05", "title": "Build starts", "body": "Build commences. Daily updates from site through to handover."},
+      {"num": "06", "title": "Subframe complete", "body": "Posts, bearers, joists installed and tape-protected. Triggers the 25% structural claim."},
+      {"num": "07", "title": "Handover", "body": "Walk-through, care guide, warranty handover. Final 20% balance due on handover."}
+    ],
+    "payment_schedule": [
+      {"pct": 5, "label": "Deposit on acceptance"},
+      {"pct": 25, "label": "Pre-start meeting"},
+      {"pct": 25, "label": "Materials delivered"},
+      {"pct": 25, "label": "Structural complete"},
+      {"pct": 20, "label": "Balance on handover"}
+    ]
+  }
+}
