@@ -1,0 +1,319 @@
+{
+  "mode": "fixed",
+  "project_type": "",
+  "client_name": "Manual Smoke Test",
+  "cover_subtitle": "Custom pergola & seating — manual quote lane test.",
+  "prepared_for": "Manual Smoke Test",
+  "location": "",
+  "proposal_date": "July 2026",
+  "status_label": "Quote",
+  "eyebrow_tag": "Fixed Price · Quote",
+  "include": {
+    "approach": true,
+    "finance": true,
+    "project_run": true
+  },
+  "finance": {
+    "wk_low": 28,
+    "wk_high": 55,
+    "rows": [
+      {
+        "label": "Endure Install — Pergola & seating package",
+        "sub": "$7,383 inc GST",
+        "wk3": 55,
+        "wk5": 36,
+        "wk7": 28
+      }
+    ],
+    "_estimate_basis": {
+      "amount_financed": 7383,
+      "apr_pct": 9.99,
+      "note": "auto-estimated, indicative only"
+    }
+  },
+  "project_run": {
+    "lead": "From acceptance to handover. Payment schedule applies to the fixed-price contract.",
+    "steps": [
+      {
+        "num": "01",
+        "title": "Acceptance",
+        "body": "Verbal acceptance moves your project to plan-drawing / build stage."
+      },
+      {
+        "num": "02",
+        "title": "Pre-start meeting",
+        "body": "Around 3 weeks before build, your Project Manager runs through site and build specifics with you on site. Triggers the 35% pre-start claim."
+      },
+      {
+        "num": "03",
+        "title": "Materials ordered",
+        "body": "Once the pre-start meeting is signed off, we order materials."
+      },
+      {
+        "num": "04",
+        "title": "Materials delivered",
+        "body": "Materials land on site. Triggers the 25% materials claim."
+      },
+      {
+        "num": "05",
+        "title": "Build starts",
+        "body": "Build commences. Daily updates from site through to handover."
+      },
+      {
+        "num": "06",
+        "title": "Subframe complete",
+        "body": "Posts, bearers, joists installed and tape-protected. Triggers the 25% structural claim."
+      },
+      {
+        "num": "07",
+        "title": "Handover",
+        "body": "Walk-through, care guide, warranty handover. Final 10% balance due on handover."
+      }
+    ],
+    "payment_schedule": [
+      {
+        "pct": 5,
+        "label": "Deposit on acceptance"
+      },
+      {
+        "pct": 35,
+        "label": "Pre-start meeting"
+      },
+      {
+        "pct": 25,
+        "label": "Materials delivered"
+      },
+      {
+        "pct": 25,
+        "label": "Structural complete"
+      },
+      {
+        "pct": 10,
+        "label": "Balance on handover"
+      }
+    ]
+  },
+  "fixed": {
+    "your_project": {
+      "summary_line": "Your Pergola & seating package — fixed price, built by Endure.",
+      "project_items": [
+        {
+          "label": "Pergola & seating package",
+          "image": "",
+          "spec_label": "",
+          "description": "Custom pergola and built-in seating, supplied and installed to the Endure 20-Year Standard.",
+          "bullets": [
+            "Steel post bases",
+            "Hardwood beams oiled",
+            "Built-in bench seating"
+          ]
+        }
+      ],
+      "zones": [],
+      "footnote": ""
+    },
+    "package_label": "Endure Install — Pergola & seating package",
+    "cost_lines": [
+      {
+        "label": "Custom pergola frame",
+        "desc": "Steel posts, hardwood beams",
+        "amount": 4874
+      },
+      {
+        "label": "Bench seating",
+        "desc": "Supply & install",
+        "amount": 2369
+      },
+      {
+        "label": "Material delivery",
+        "desc": "fixed job cost",
+        "amount": 140
+      }
+    ],
+    "subtotal_ex_gst": 6711.82,
+    "total_inc_gst": 7383,
+    "included": "",
+    "excluded": "",
+    "deposit_pct": 5,
+    "_working": {
+      "quote_calc": {
+        "area": "",
+        "subframe": "Standard (timber, stirrups)",
+        "board": "Merbau 140mm",
+        "boardCustom": "",
+        "boardCostCustom": "",
+        "daysOv": null,
+        "marginOv": null,
+        "jobDaysOv": null,
+        "mults": [],
+        "delivery": "",
+        "bins": "",
+        "demo": "",
+        "deck": {
+          "area": 0,
+          "matM2": 204.84,
+          "mat": 0,
+          "daysAuto": 0,
+          "days": 0,
+          "labour": 0,
+          "cost": 0,
+          "marginAuto": 0,
+          "margin": 0,
+          "sellEx": 0,
+          "sellInc": 0,
+          "gpDay": 0,
+          "marginPct": 0
+        },
+        "day_factor": 1,
+        "job_days": 0,
+        "job_margin": 2305,
+        "gp_per_day": 0
+      },
+      "rate_card": {
+        "subframes": [
+          {
+            "name": "Standard (timber, stirrups)",
+            "cost": 113.04,
+            "daysMult": 1
+          },
+          {
+            "name": "Raised timber (>500mm)",
+            "cost": 124.34,
+            "daysMult": 1.1
+          },
+          {
+            "name": "Aluminium click (low profile)",
+            "cost": 153,
+            "daysMult": 0.9
+          }
+        ],
+        "day_tranches": [
+          {
+            "upTo": 15,
+            "rate": 5.5
+          },
+          {
+            "upTo": 20,
+            "rate": 8.4
+          },
+          {
+            "upTo": 40,
+            "rate": 10
+          },
+          {
+            "upTo": 99999,
+            "rate": 12
+          }
+        ],
+        "multipliers": [
+          {
+            "name": "Difficult access",
+            "mult": 1.1
+          },
+          {
+            "name": "Double-storey / balcony",
+            "mult": 1.2
+          },
+          {
+            "name": "Pool-adjacent",
+            "mult": 1.1
+          },
+          {
+            "name": "Working around obstacles",
+            "mult": 1.15
+          }
+        ],
+        "rates_version": 4,
+        "boards": [
+          {
+            "name": "Merbau 140mm",
+            "cost": 91.8,
+            "image": "merbau.jpg"
+          },
+          {
+            "name": "Jarrah 135mm",
+            "cost": 158.9,
+            "image": "jarrah.jpg"
+          },
+          {
+            "name": "Spotted Gum 140mm",
+            "cost": 207.3,
+            "image": "spottedgum.jpg"
+          },
+          {
+            "name": "Eva-Last Infinity 135x25",
+            "cost": 152,
+            "image": "evainf.jpg"
+          },
+          {
+            "name": "Eva-Last Pioneer 145mm",
+            "cost": 306,
+            "image": "evapio.jpg"
+          },
+          {
+            "name": "MoistureShield Vision 140mm",
+            "cost": 0,
+            "image": "moisture.jpg"
+          },
+          {
+            "name": "MoistureShield Meridian 140mm",
+            "cost": 234.5,
+            "image": "moisture.jpg"
+          }
+        ],
+        "linear": [
+          {
+            "name": "Stairs",
+            "rate": 0
+          },
+          {
+            "name": "Picture-frame border",
+            "rate": 0
+          },
+          {
+            "name": "Fascia",
+            "rate": 0
+          }
+        ],
+        "labour_day": 960,
+        "gp_target": 2000,
+        "gp_floor": 1200,
+        "margin_pct_default": 35,
+        "delivery": 140,
+        "bin": 180,
+        "demo_m2": 30,
+        "smalljob_m2": 20,
+        "smalljob_loading": 600
+      },
+      "lines": [
+        {
+          "label": "Custom pergola frame",
+          "desc": "Steel posts, hardwood beams",
+          "cost": 2880,
+          "labour": "",
+          "margin": 1551,
+          "bundle": "",
+          "sel": false,
+          "manual": true,
+          "qty": "6",
+          "unit": "480",
+          "mpct": 35
+        },
+        {
+          "label": "Bench seating",
+          "desc": "",
+          "cost": "1400",
+          "labour": "",
+          "margin": 754,
+          "bundle": "",
+          "sel": false,
+          "manual": true,
+          "qty": "",
+          "unit": "",
+          "mpct": "35"
+        }
+      ],
+      "std_overrides": {}
+    }
+  }
+}

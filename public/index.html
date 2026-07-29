@@ -320,6 +320,10 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
       Quote (Fixed)
       <div class="d">Red/Standard lane — standard items, rate-calculated price, accept + deposit.</div>
     </div>
+    <div class="mode-btn" id="modeManualBtn" onclick="setMode('manual')">
+      Manual (Quote)
+      <div class="d">No calculator — build the quote line by line: item, cost, margin, total. Renders as a fixed-price Quote.</div>
+    </div>
   </div>
 
   <!-- JOB SETUP -->
@@ -438,7 +442,7 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
 
   <!-- FIXED MODE -->
   <div id="fixedSection" class="hidden">
-    <div class="card">
+    <div class="card" id="pkgBuilderCard">
       <h2>&#9312; Package builder — build a package, then save it</h2>
       <p class="desc">A <strong>package</strong> is one complete option the client can pick — the deck plus everything that belongs to it (stairs, borders…). Build it here in one go, hit <strong>Save package</strong>, and it lands on the quote and the project page together. Job-wide costs (delivery, bins, demo) live below, outside packages. Gold = your override, ↺ = back to calculated.</p>
       <div id="edBanner" style="display:none;background:var(--cream);border-left:3px solid var(--mustard-deep);padding:6px 12px;border-radius:0;font-size:12px;margin-bottom:8px;"></div>
@@ -577,6 +581,11 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
       <div class="field"><label>Summary line</label>
         <input type="text" id="fx_summary_line" placeholder="(auto from calculator — type to override)"></div>
       <div id="bundlesEditor"></div>
+      <div style="display:flex;gap:8px;align-items:flex-end;margin-top:6px;flex-wrap:wrap;">
+        <div class="field" style="margin:0;max-width:230px;"><label>Custom hero name</label><span class="hint">For manual quotes — a project card with no calculator behind it</span>
+          <input type="text" id="newHeroName" placeholder="e.g. Alfresco upgrade"></div>
+        <button class="add-btn" style="margin-top:0;" onclick="addCustomHero()">+ Add custom hero</button>
+      </div>
       <div class="grid2" style="margin-top:10px;">
         <div class="field"><label>Footnote</label>
           <input type="text" id="fx_footnote"></div>
@@ -591,6 +600,29 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
         <tbody id="zonesBody"></tbody>
       </table>
       <button class="add-btn" onclick="addZone()">+ Add zone</button>
+    </div>
+  </div>
+
+  <!-- MANUAL / CUSTOM LINE ITEMS (all modes) -->
+  <div class="card" id="manualCard">
+    <h2 id="manualTitle">Manual line items</h2>
+    <div class="check-row" id="manualToggleRow" style="margin-bottom:8px;">
+      <input type="checkbox" id="manualShowCb" onchange="S.manualShow=this.checked; renderManual(); refresh();">
+      <label for="manualShowCb" style="margin:0;">Add manual / custom items to this document</label>
+    </div>
+    <p class="desc" id="manualDesc"></p>
+    <div id="manualWrap" class="hidden">
+      <table class="rep" id="manualTable">
+        <thead><tr>
+          <th style="width:20%">Item</th><th style="width:22%">Detail (client sees)</th>
+          <th style="width:8%">Qty</th><th style="width:10%">Unit cost $</th>
+          <th style="width:11%">Cost $</th><th style="width:9%">Margin %</th>
+          <th style="width:14%">Sell (auto)</th><th></th>
+        </tr></thead>
+        <tbody id="manualBody"></tbody>
+      </table>
+      <button class="add-btn" onclick="addManualItem()">+ Add item</button>
+      <div class="totals-strip" id="manualTotals" style="margin-top:8px;"></div>
     </div>
   </div>
 
@@ -686,7 +718,7 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
   </div>
 
   <div class="save-bar">
-    <div class="status-line" id="statusLine">Drafts autosave in this browser. Save sends the job to Drive; Generate PDF downloads the finished document.</div>
+    <div class="status-line" id="statusLine">In-chat build. Generate PDF exports the job file — attach it in chat and Claude renders the real branded PDF. Save to Drive files the job (or exports both JSONs if the Drive bridge isn’t connected).</div>
     <button class="reset-form-btn" onclick="resetForm()">New job / clear</button>
     <button class="save-btn" id="pdfBtn" style="background:#555;" onclick="generatePdf()">Generate PDF</button>
     <button class="save-btn" id="saveBtn" onclick="saveJob()">Save to Drive</button>
@@ -706,6 +738,25 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
 </div>
 
 <script>
+// ── in-chat environment shims ──────────────────────────────────────────────
+// Artifacts run in a sandboxed iframe: localStorage and alert/confirm are
+// unavailable. Drafts fall back to in-memory (lost on close — use Save/
+// Generate to export the job as JSON instead).
+const LSTORE = (function(){
+  try{ const t=window.localStorage; t.setItem('__t','1'); t.removeItem('__t'); return t; }
+  catch(e){ const m={}; return {getItem:function(k){return (k in m)?m[k]:null;}, setItem:function(k,v){m[k]=String(v);}, removeItem:function(k){delete m[k];}}; }
+})();
+function notify(msg){
+  const el=document.getElementById('statusLine');
+  if(el){ el.className='status-line err'; el.textContent=msg; }
+}
+function downloadFile(name, text, mime){
+  const blob = new Blob([text], {type:mime||'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click(); URL.revokeObjectURL(a.href);
+}
 const INCOMING_JOBS_FOLDER_ID = '1key5ny6cXMh3wU10N1o68JyeQpuwYDNP';
 const CREATE_FILE_TOOL = 'mcp__1db9ce6b-d245-4233-b1ff-40ee9a21666d__create_file';
 const ENDURE_ENDPOINT = window.ENDURE_ENDPOINT || 'PASTE_WEBAPP_URL_HERE';
@@ -803,6 +854,7 @@ let S = defaultState();
 function defaultState(){
   return {
     mode:'range',
+    manualOnly:false, manualShow:false,
     rc: JSON.parse(JSON.stringify(RATECARD)),
     options: [ blankOption() ],
     altMaterials: [],
@@ -918,7 +970,7 @@ function deckCalcFor(p){
 function deckCalc(){ return deckCalcFor(S.qc); }
 function fmt$(n){ n=Number(n); if(isNaN(n)) return '$0'; return '$'+Math.round(n).toLocaleString('en-US'); }
 function fmt$2(n){ n=Number(n); if(isNaN(n)) return '$0.00'; return '$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-function range$(lo,hi){ if(!lo&&!hi) return '$0'; return fmt$(lo)+' – '+fmt$(hi); }
+function range$(lo,hi){ if(!lo&&!hi) return '$0'; if(Number(lo)===Number(hi)) return fmt$(lo); return fmt$(lo)+' – '+fmt$(hi); }
 function val(id){ const el=document.getElementById(id); return el?el.value:''; }
 function setVal(id,v){ const el=document.getElementById(id); if(el) el.value = (v===undefined||v===null)?'':v; }
 function num(id){ const v=val(id); return v===''?'':Number(v); }
@@ -974,7 +1026,7 @@ function ensureBundle(name, opts){
   return b;
 }
 function pruneBundles(){
-  S.bundles = S.bundles.filter(function(b){ return linesIn(b.name).length>0 || b.price_ov; });
+  S.bundles = S.bundles.filter(function(b){ return linesIn(b.name).length>0 || b.price_ov || b.custom; });
 }
 function bundleOptions(sel){
   const names = S.bundles.map(function(b){return b.name;});
@@ -1028,7 +1080,7 @@ function renderEx(){
 }
 function onExTypeChange(){ S.ex.type=val('ex_type'); S.ex.rateOv=null; renderEx(); }
 function addExtraToPackage(){
-  if(!exName() || exSell()<=0){ alert('Give the extra a name and a price first.'); return; }
+  if(!exName() || exSell()<=0){ notify('Give the extra a name and a price first.'); return; }
   const qtyBit = S.ex.qty ? (S.ex.qty+'lm — ') : '';
   S.ed.extras.push({label:exName(), desc:qtyBit+'supply & install', cost:exCost(), labour:Number(S.ex.labour)||0, margin:Number(S.ex.margin)||0});
   S.ex.qty=''; S.ex.labour=''; S.ex.margin='';
@@ -1067,12 +1119,12 @@ function cancelEdit(){
 }
 function savePackage(){
   const dc = deckCalc();
-  if(dc.area<=0){ alert('Enter the deck area first.'); return; }
+  if(dc.area<=0){ notify('Enter the deck area first.'); return; }
   const autoName = effBoardName()+' deck';
   let bname = (val('pkg_name')||'').trim() || (S.ed.editingName || autoName);
   const renaming = S.ed.editingName && bname!==S.ed.editingName;
   if(!S.ed.editingName && bundleByName(bname)) { bname = bname+' (2)'; }
-  if(renaming && bundleByName(bname)){ alert('A package called "'+bname+'" already exists.'); return; }
+  if(renaming && bundleByName(bname)){ notify('A package called "'+bname+'" already exists.'); return; }
   // remove old lines for this package
   const oldName = S.ed.editingName || bname;
   S.costLines = S.costLines.filter(function(c){ return (c.bundle||'')!==oldName; });
@@ -1117,7 +1169,7 @@ function deckLineFor(p, bname){
 }
 function duplicatePackage(i){
   const src = S.bundles[i];
-  if(!src || !src.params){ alert('This package has no saved recipe to duplicate.'); return; }
+  if(!src || !src.params){ notify('This package has no saved recipe to duplicate.'); return; }
   let newName = 'Copy of '+src.name, n=2;
   while(bundleByName(newName)){ newName = 'Copy of '+src.name+' ('+(n++)+')'; }
   const nb = JSON.parse(JSON.stringify(src));
@@ -1137,7 +1189,7 @@ function duplicatePackage(i){
 }
 function addDeckToQuote(){
   const dc = deckCalc();
-  if(dc.area<=0){ alert('Enter a deck area first.'); return; }
+  if(dc.area<=0){ notify('Enter a deck area first.'); return; }
   const bname = effBoardName()+' deck';
   const line = deckLineFor(packageParams(), bname);
   const idx=S.costLines.findIndex(function(c){return c.label===line.label && (c.bundle||'')===bname;});
@@ -1153,8 +1205,8 @@ function addDeckToQuote(){
 function bundleSelected(){
   const name = (val('bundle_name')||'').trim();
   const sel = S.costLines.filter(function(c){return c.sel && c.label;});
-  if(!name){ alert('Name the bundle first — e.g. "Merbau package".'); return; }
-  if(!sel.length){ alert('Tick the lines that belong to this bundle first.'); return; }
+  if(!name){ notify('Name the bundle first — e.g. "Merbau package".'); return; }
+  if(!sel.length){ notify('Tick the lines that belong to this bundle first.'); return; }
   sel.forEach(function(c){ c.bundle=name; c.sel=false; });
   const firstHero = !S.bundles.some(function(b){return b.isHero && b.inCost!==false;});
   ensureBundle(name, {isHero:true, inCost:firstHero});
@@ -1417,6 +1469,97 @@ function renderCostLines(){
 }
 function addCostLine(){ S.costLines.push({label:'',cost:'',labour:'',margin:'',bundle:'',sel:false}); renderCostLines(); refresh(); }
 
+// ---------------- manual line items (accounting-style grid, all modes) ----------------
+// Manual items live in S.costLines with manual:true, so in Quote mode they flow
+// through every existing path (totals, quote summary "Other items", GP badge,
+// internal costing auto-fill, cost_lines in the PDF) with no special casing.
+// In Proposal (range) mode they render as "Optional Add-on" option cards.
+function manualLines(){ return S.costLines.filter(function(c){return c.manual;}); }
+function addManualItem(){
+  S.costLines.push({label:'',desc:'',cost:'',labour:'',margin:'',bundle:'',sel:false,
+    manual:true, qty:'', unit:'', mpct:(Number(S.rc.margin_pct_default)||35)});
+  renderManual(); renderCostLines(); refresh();
+}
+function mSyncMargin(c){
+  const p = Number(c.mpct);
+  if(!isNaN(p) && p>0 && p<95) c.margin = Math.round((Number(c.cost)||0)*p/(100-p));
+  else if(String(c.mpct)==='' || Number(c.mpct)===0) c.margin = 0;
+}
+function mEdit(i,k,v){
+  const c=S.costLines[i]; if(!c) return;
+  c[k]=v;
+  if(k==='qty'||k==='unit'){
+    if(String(c.qty)!=='' && String(c.unit)!==''){
+      c.cost = Math.round((Number(c.qty)||0)*(Number(c.unit)||0)*100)/100;
+      const el=document.getElementById('mn_cost_'+i);
+      if(el && document.activeElement!==el) el.value=c.cost;
+    }
+  }
+  if(k==='qty'||k==='unit'||k==='cost'||k==='mpct') mSyncMargin(c);
+  const sellEl=document.getElementById('mn_sell_'+i); if(sellEl) sellEl.textContent=fmt$(lineSellInc(c));
+  const mgEl=document.getElementById('mn_mg_'+i); if(mgEl) mgEl.textContent='margin '+fmt$(Number(c.margin)||0);
+  renderManualTotals();
+}
+function renderManual(){
+  const wrap=document.getElementById('manualWrap'); if(!wrap) return;
+  if(S.manualOnly) S.manualShow=true;
+  const cb=document.getElementById('manualShowCb'); if(cb) cb.checked=!!S.manualShow;
+  const row=document.getElementById('manualToggleRow'); if(row) row.classList.toggle('hidden', !!S.manualOnly);
+  wrap.classList.toggle('hidden', !S.manualShow);
+  const title=document.getElementById('manualTitle');
+  if(title) title.textContent = S.manualOnly ? 'Build the quote — line by line' : 'Manual line items';
+  const desc=document.getElementById('manualDesc');
+  if(desc) desc.textContent = S.manualOnly
+    ? 'Accounting-style entry: item, cost, margin, total. Qty × unit fills the cost automatically (or type a cost directly); margin % is of sell, like the calculator. Lines land on the client quote exactly as written. Delete a line to take it off the document.'
+    : (S.mode==='range'
+      ? 'For anything too custom for the options table — each item becomes an "Optional Add-on" card next to the priced options (and a tick-box on the approval page). Delete a line to take it off the document.'
+      : 'For anything too custom for the calculator — items join the quote as standalone lines, in the totals and the internal budget. Delete a line to take it off the document.');
+  document.getElementById('manualBody').innerHTML = S.costLines.map(function(c,i){
+    if(!c.manual) return '';
+    return `<tr>
+      <td><input type="text" value="${escA(c.label)}" oninput="mEdit(${i},'label',this.value)" placeholder="e.g. Custom bench seat"></td>
+      <td><input type="text" value="${escA(c.desc||'')}" oninput="mEdit(${i},'desc',this.value)" placeholder="Supply & install"></td>
+      <td><input type="number" value="${escA(c.qty)}" oninput="mEdit(${i},'qty',this.value)"></td>
+      <td><input type="number" value="${escA(c.unit)}" oninput="mEdit(${i},'unit',this.value)"></td>
+      <td><input type="number" id="mn_cost_${i}" value="${escA(c.cost)}" oninput="mEdit(${i},'cost',this.value)"></td>
+      <td><input type="number" id="mn_mpct_${i}" value="${escA(c.mpct)}" oninput="mEdit(${i},'mpct',this.value)"></td>
+      <td style="padding-top:9px;font-weight:600;"><span id="mn_sell_${i}">${fmt$(lineSellInc(c))}</span> <span style="font-weight:400;color:var(--grey);font-size:10px;">inc GST</span>
+        <div style="font-weight:400;color:var(--grey);font-size:10px;" id="mn_mg_${i}">margin ${fmt$(Number(c.margin)||0)}</div></td>
+      <td><button class="rm-btn" onclick="S.costLines.splice(${i},1); renderManual(); renderCostLines(); refresh();">✕</button></td>
+    </tr>`; }).join('');
+  renderManualTotals();
+}
+function renderManualTotals(){
+  const el=document.getElementById('manualTotals'); if(!el) return;
+  const ls=manualLines().filter(function(c){return c.label;});
+  if(!ls.length){ el.innerHTML=''; return; }
+  const cost=ls.reduce(function(a,c){return a+(Number(c.cost)||0);},0);
+  const mg=ls.reduce(function(a,c){return a+(Number(c.margin)||0);},0);
+  const inc=ls.reduce(function(a,c){return a+lineSellInc(c);},0);
+  el.innerHTML = '<div><div class="t-lab">Items</div><div class="t-val">'+ls.length+'</div></div>'
+    +'<div><div class="t-lab">Cost</div><div class="t-val">'+fmt$(cost)+'</div></div>'
+    +'<div><div class="t-lab">Margin</div><div class="t-val">'+fmt$(mg)+'</div></div>'
+    +'<div><div class="t-lab">Sell inc GST</div><div class="t-val big">'+fmt$(inc)+'</div></div>';
+}
+function manualAsOptions(){
+  return manualLines().filter(function(c){return c.label;}).map(function(c){
+    const inc = lineSellInc(c);
+    return {sel:CUSTOM, custom:c.label, size_label:'',
+      price_low_inc_gst:inc, price_high_inc_gst:inc,
+      spec_line:c.desc||'Supplied & installed', eyebrow:'Optional Add-on', _manual:true};
+  });
+}
+function effOptions(){ return S.mode==='range' ? S.options.concat(manualAsOptions()) : S.options; }
+function addCustomHero(){
+  const name = (val('newHeroName')||'').trim() || ('Custom hero '+(S.bundles.length+1));
+  if(bundleByName(name)){ notify('A bundle called "'+name+'" already exists.'); return; }
+  const b = blankBundle(name); b.isHero=true; b.custom=true;
+  S.bundles.push(b); setVal('newHeroName','');
+  renderBundles(); refresh();
+  const st=document.getElementById('statusLine');
+  if(st){ st.className='status-line ok'; st.textContent='"'+name+'" added to the project page — set its photo, price and description below.'; }
+}
+
 function exportSetup(){
   const setup = {endure_setup_version:1, exported:new Date().toISOString(), rc:S.rc, materials:MATERIALS};
   const txt = JSON.stringify(setup, null, 2);
@@ -1434,7 +1577,7 @@ function exportSetup(){
 }
 function importSetup(){
   const raw = val('setup_paste').trim();
-  if(!raw){ alert('Paste a setup file first.'); return; }
+  if(!raw){ notify('Paste a setup file first.'); return; }
   try{
     const s = JSON.parse(raw);
     if(!s.rc) throw new Error('not an Endure setup file');
@@ -1443,7 +1586,7 @@ function importSetup(){
     document.getElementById('setup_import').classList.add('hidden');
     document.getElementById('statusLine').className='status-line ok';
     document.getElementById('statusLine').textContent='Setup imported — your rates are now loaded. Quote away.';
-  }catch(e){ alert('That doesn\u2019t look like a valid setup file: '+e.message); }
+  }catch(e){ notify('That doesn\u2019t look like a valid setup file: '+e.message); }
 }
 function renderRates(){
   document.getElementById('rcSubframesBody').innerHTML = S.rc.subframes.map(function(s,i){
@@ -1473,7 +1616,9 @@ function renderBundles(){
     const lines = linesIn(b.name);
     return `<div style="border:1px solid var(--rule);border-left:4px solid ${b.inCost!==false?'var(--mustard-deep)':'var(--rule)'};border-radius:6px;padding:10px 14px;margin-bottom:8px;">
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-        <strong>${esc(b.name)}</strong>
+        ${(b.custom && !lines.length && !b.params)
+          ? `<input type="text" value="${escA(b.name)}" style="max-width:180px;font-weight:700;" oninput="S.bundles[${i}].name=this.value" title="Custom hero — rename freely">`
+          : `<strong>${esc(b.name)}</strong>`}
         <span style="font-weight:700;color:var(--mustard-deep);">${fmt$(price)}</span>
         <span style="font-size:11px;color:var(--grey);">${lines.length} line${lines.length===1?'':'s'}</span>
         <label class="check-row" style="font-weight:400;font-size:11.5px;"><input type="checkbox" ${b.isHero?'checked':''} onchange="S.bundles[${i}].isHero=this.checked; renderBundles(); refresh();"> hero on project page</label>
@@ -1586,12 +1731,17 @@ function setModeInternalCopy(m){
   }
 }
 function setMode(m){
+  S.manualOnly = (m==='manual');
+  if(m==='manual') m='fixed';   // manual is a UI lane over the fixed-price Quote document
   S.mode = m;
   setModeInternalCopy(m);
   document.getElementById('modeRangeBtn').classList.toggle('active', m==='range');
-  document.getElementById('modeFixedBtn').classList.toggle('active', m==='fixed');
+  document.getElementById('modeFixedBtn').classList.toggle('active', m==='fixed' && !S.manualOnly);
+  const mb=document.getElementById('modeManualBtn'); if(mb) mb.classList.toggle('active', S.manualOnly);
   document.getElementById('rangeSection').classList.toggle('hidden', m!=='range');
   document.getElementById('fixedSection').classList.toggle('hidden', m!=='fixed');
+  const pkg=document.getElementById('pkgBuilderCard'); if(pkg) pkg.classList.toggle('hidden', !!S.manualOnly);
+  renderManual();
   refresh();
 }
 
@@ -1681,7 +1831,7 @@ function pvScopeBlock(){
   return `<div class="scope-h">Scope — included</div><div class="scope-table"><div class="scope-header"><div>Item</div><div>Allowance</div></div>${rows}</div>${note}`;
 }
 function pvPagesCostRange(n){
-  const active = S.options.filter(o=>effLabel(o)||o.size_label||o.price_low_inc_gst);
+  const active = effOptions().filter(o=>effLabel(o)||o.size_label||o.price_low_inc_gst);
   const compact = active.length>1;
   const cards = active.map(o=>pvOptionCard(o,compact)).join('') || '<p style="color:var(--grey);font-style:italic;">Add options on the left…</p>';
   if(active.length<=1){
@@ -1778,7 +1928,7 @@ function pvFinance(n){
 function pvApproval(n){
   let projectCards, extra='', acceptText, signRightLabel, lead;
   if(S.mode==='range'){
-    const active = S.options.filter(o=>effLabel(o)||o.price_low_inc_gst);
+    const active = effOptions().filter(o=>effLabel(o)||o.price_low_inc_gst);
     projectCards = active.map(function(o){ return `<div class="appr-card"><div class="cbx">☐</div><div><div class="nm">${esc(effLabel(o))}${o.size_label?' · '+esc(o.size_label):''}</div>
       <div class="pr">${range$(o.price_low_inc_gst,o.price_high_inc_gst)} inc GST</div></div></div>`; }).join('');
     projectCards += S.altMaterials.filter(a=>effLabel(a)).map(function(a){ return `<div class="appr-card"><div class="cbx">☐</div><div><div class="nm">Substitute with ${esc(effLabel(a))}</div><div class="pr">${esc(a.delta)}</div></div></div>`; }).join('');
@@ -1975,7 +2125,7 @@ function renderIcSummary(){
 }
 function icFilesPicked(input){
   Array.from(input.files).forEach(function(f){
-    if(f.size > 4*1024*1024){ alert(f.name+' is over 4MB — resize it first.'); return; }
+    if(f.size > 4*1024*1024){ notify(f.name+' is over 4MB — resize it first.'); return; }
     const reader = new FileReader();
     reader.onload = function(e){
       S.ic.attachments.push({name:f.name, mime:f.type, dataUrl:e.target.result});
@@ -2198,12 +2348,12 @@ function autosave(){
     FIELD_IDS.forEach(function(id){ S.fields[id]=val(id); });
     const copy = JSON.parse(JSON.stringify(S));
     copy.ic.attachments = [];  // dataURLs would blow the localStorage quota
-    localStorage.setItem('endureBuilderDraft', JSON.stringify(copy));
+    LSTORE.setItem('endureBuilderDraft', JSON.stringify(copy));
   }catch(e){}
 }
 function restore(){
   try{
-    const raw = localStorage.getItem('endureBuilderDraft');
+    const raw = LSTORE.getItem('endureBuilderDraft');
     if(!raw) return false;
     const saved = JSON.parse(raw);
     const def = defaultState();
@@ -2232,10 +2382,19 @@ function restore(){
 function restoreFields(){
   for(const id of FIELD_IDS){ if(S.fields && S.fields[id]!==undefined) setVal(id, S.fields[id]); }
 }
+let _resetArmed = null;
 function resetForm(){
-  if(!confirm('Clear the whole form and start a new job? (Rates library is kept.)')) return;
+  // confirm() is blocked in the chat sandbox — two-click confirm instead.
+  if(!_resetArmed || (Date.now()-_resetArmed) > 6000){
+    _resetArmed = Date.now();
+    const el=document.getElementById('statusLine');
+    el.className='status-line err';
+    el.textContent='Clear the whole form and start a new job? Click "New job / clear" again to confirm. (Rates library is kept.)';
+    return;
+  }
+  _resetArmed = null;
   const keepRc = JSON.parse(JSON.stringify(S.rc));
-  localStorage.removeItem('endureBuilderDraft');
+  LSTORE.removeItem('endureBuilderDraft');
   S = defaultState(); S.rc=keepRc;
   FIELD_IDS.forEach(function(id){ setVal(id,''); });
   setVal('fx_deposit_pct',5); setVal('consult_fee_paid',0);
@@ -2263,7 +2422,7 @@ function setOpsTab(t){
 }
 function opsPhotosPicked(input){
   Array.from(input.files).forEach(function(f){
-    if(f.size > 4*1024*1024){ alert(f.name+' is over 4MB — resize it first.'); return; }
+    if(f.size > 4*1024*1024){ notify(f.name+' is over 4MB — resize it first.'); return; }
     const reader=new FileReader();
     reader.onload=function(e){ S.ic.attachments.push({name:'site-'+f.name, mime:f.type, dataUrl:e.target.result}); renderOpsPhotos(); renderIcFiles(); };
     reader.readAsDataURL(f);
@@ -2322,7 +2481,11 @@ function buildJobData(clientName){
           price_low_ex_gst:Math.round((Number(o.price_low_inc_gst)||0)/1.1), price_high_ex_gst:Math.round((Number(o.price_high_inc_gst)||0)/1.1),
           spec_line:o.spec_line };
         if(o.eyebrow) opt.eyebrow = o.eyebrow;
-        return opt; }),
+        return opt; }).concat(manualAsOptions().map(function(o){
+        return {label:o.custom, image:'', size_label:'',
+          price_low_inc_gst:o.price_low_inc_gst, price_high_inc_gst:o.price_high_inc_gst,
+          price_low_ex_gst:Math.round(o.price_low_inc_gst/1.1), price_high_ex_gst:Math.round(o.price_high_inc_gst/1.1),
+          spec_line:o.spec_line, eyebrow:o.eyebrow}; })),
       alt_materials: S.altMaterials.filter(a=>effLabel(a)).map(function(a){ return {name:effLabel(a), note:a.note, delta:a.delta}; }),
       scope_items: S.scopeItems.filter(s=>s.label),
       preliminary_note: val('preliminary_note'),
@@ -2362,6 +2525,19 @@ async function generatePdf(){
   btn.disabled=true; statusEl.className='status-line'; statusEl.textContent='Rendering PDF…';
   try{
     const data = buildJobData(clientName);
+    if(ENDURE_ENDPOINT === 'PASTE_WEBAPP_URL_HERE'){
+      // In-chat mode: no hosted renderer. Export the job data — Claude renders
+      // the real PDF (WeasyPrint, pixel-identical) from this file in chat.
+      // Internal costing exports alongside so the PM sheet is never lost
+      // (it stays internal — Claude must NOT merge it into the client PDF).
+      const slug = clientName.replace(/[^A-Za-z0-9]+/g,'_');
+      downloadFile(slug+'_job-data.json', JSON.stringify(data, null, 2));
+      downloadFile(slug+'_internal-costing.json', JSON.stringify(buildInternalPayload(icTotals(), clientName), null, 2));
+      statusEl.className='status-line ok';
+      statusEl.textContent='Two files downloaded: job-data (the document) and internal-costing (PM only — never goes to the client). Attach both in this chat and ask Claude to generate the '+(S.mode==='range'?'proposal':'quote')+' PDF and file the job.';
+      btn.disabled=false;
+      return;
+    }
     const res = await fetch(ENDURE_ENDPOINT, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
       body: JSON.stringify({action:'render', token:TEAM_TOKEN, job_data:data})});
     const ct = res.headers.get('Content-Type')||'';
@@ -2393,6 +2569,19 @@ async function saveJob(){
 
   try{
     const folderName = slugFolderName();
+    if(!hasCowork() && ENDURE_ENDPOINT === 'PASTE_WEBAPP_URL_HERE'){
+      // In-chat mode with no Drive bridge: export both files. Attach them in
+      // chat and ask Claude to file the job folder into Incoming Jobs.
+      const t0 = icTotals();
+      const internal0 = buildInternalPayload(t0, clientName);
+      const slug = clientName.replace(/[^A-Za-z0-9]+/g,'_');
+      downloadFile(slug+'_job-data.json', JSON.stringify(data, null, 2));
+      downloadFile(slug+'_internal-costing.json', JSON.stringify(internal0, null, 2));
+      statusEl.className='status-line ok';
+      statusEl.textContent='Two files downloaded (job-data + internal-costing). Attach them in this chat and ask Claude to save the job folder "'+folderName+'" to Incoming Jobs and generate the PDF.'+(S.ic.attachments.length?' Site photos aren’t in the export — attach those in chat too.':'');
+      btn.disabled=false;
+      return;
+    }
     if(!hasCowork()){
       const t0 = icTotals();
       const internal0 = buildInternalPayload(t0, clientName);
@@ -2434,8 +2623,18 @@ async function saveJob(){
     statusEl.className='status-line ok';
     statusEl.innerHTML = 'Saved. Job folder: <a class="folder-link" href="'+(folder.viewUrl||'#')+'" target="_blank">'+esc(folderName)+'</a> — now ask Claude to generate the '+(S.mode==='range'?'proposal':'quote')+' for '+esc(clientName)+'.';
   }catch(err){
-    statusEl.className='status-line err';
-    statusEl.textContent='Error: '+(err&&err.message?err.message:String(err));
+    // Drive bridge failed — fall back to exporting the files so nothing is lost.
+    try{
+      const tF = icTotals();
+      const slug = clientName.replace(/[^A-Za-z0-9]+/g,'_');
+      downloadFile(slug+'_job-data.json', JSON.stringify(data, null, 2));
+      downloadFile(slug+'_internal-costing.json', JSON.stringify(buildInternalPayload(tF, clientName), null, 2));
+      statusEl.className='status-line err';
+      statusEl.textContent='Drive save failed ('+(err&&err.message?err.message:String(err))+') — job-data + internal-costing downloaded instead. Attach them in chat and ask Claude to file the job.';
+    }catch(e2){
+      statusEl.className='status-line err';
+      statusEl.textContent='Error: '+(err&&err.message?err.message:String(err));
+    }
   }finally{ btn.disabled=false; }
 }
 
@@ -2446,6 +2645,7 @@ function initTables(){
   renderBundles(); renderZones(); renderFinanceRow();
   renderSteps(); renderPayment(); renderEx(); renderEdExtras(); edBanner(); setCalcTab(S.calcTab||'deck'); renderOpsPhotos(); renderFixedCosts();
   renderIcMat(); renderIcLab(); renderIcPass(); renderIcFiles();
+  renderManual();
   setVal('ic_comm_pct', S.ic.commPct);
 }
 const restored = restore();
@@ -2463,7 +2663,7 @@ if(restored){
   const boxes={inc_approach:'approach',inc_finance:'finance',inc_projectrun:'project_run'};
   for(const id in boxes){ const el=document.getElementById(id); if(el) el.checked = S.include[boxes[id]]!==false; }
 })();
-setMode(S.mode);
+setMode(S.manualOnly ? 'manual' : S.mode);
 syncFinanceInputs();
 refresh();
 loadHostedRates();
