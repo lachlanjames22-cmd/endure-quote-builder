@@ -44,6 +44,13 @@ table.rep td textarea{font-size:12px;padding:5px 6px;min-height:32px;}
 .add-btn{margin-top:6px;background:var(--white);border:1px solid var(--mustard-deep);color:var(--mustard-deep);
   padding:6px 12px;border-radius:5px;cursor:pointer;font-weight:600;font-size:11.5px;}
 .add-btn:hover{background:var(--cream);}
+.sk-toolbar{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-bottom:8px;}
+.sk-btn{background:#fff;border:1px solid var(--rule);border-radius:5px;padding:5px 9px;font-size:11.5px;cursor:pointer;color:var(--ink);}
+.sk-btn.active{border-color:var(--mustard-deep);background:var(--cream);font-weight:700;}
+.sk-swatch{width:20px;height:20px;border-radius:50%;display:inline-block;cursor:pointer;border:2px solid transparent;vertical-align:middle;}
+.sk-swatch.active{border-color:var(--mustard-deep);box-shadow:0 0 0 2px #fff inset;}
+.sk-sep{width:1px;height:20px;background:var(--rule);margin:0 3px;}
+#skCanvas{width:100%;border:1px solid var(--rule);border-radius:6px;background:#fff;touch-action:none;display:block;cursor:crosshair;}
 .check-row{display:flex;align-items:center;gap:5px;}
 .save-bar{position:sticky;bottom:0;background:var(--ink);color:#fff;padding:14px 18px;border-radius:8px;
   display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:10px;z-index:5;}
@@ -624,6 +631,35 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
       <button class="add-btn" onclick="addManualItem()">+ Add item</button>
       <div class="totals-strip" id="manualTotals" style="margin-top:8px;"></div>
     </div>
+  </div>
+
+  <!-- SITE SKETCH -->
+  <div class="card" id="sketchCard">
+    <h2>Site sketch</h2>
+    <p class="desc">Draw the deck, mark dimensions, trace over a site photo. Works with a finger on a phone or tablet.
+    The sketch saves into the job's Drive folder automatically — it never appears in the client document.</p>
+    <div class="sk-toolbar" id="skToolbar">
+      <button class="sk-btn" data-tool="pen" onclick="skTool('pen')">✏ Pen</button>
+      <button class="sk-btn" data-tool="line" onclick="skTool('line')">╱ Line</button>
+      <button class="sk-btn" data-tool="rect" onclick="skTool('rect')">▭ Rect</button>
+      <button class="sk-btn" data-tool="arrow" onclick="skTool('arrow')">➔ Arrow</button>
+      <button class="sk-btn" data-tool="text" onclick="skTool('text')">T Text</button>
+      <span class="sk-sep"></span>
+      <span class="sk-swatch" data-c="#1A1815" style="background:#1A1815" onclick="skColor('#1A1815')"></span>
+      <span class="sk-swatch" data-c="#B7872F" style="background:#B7872F" onclick="skColor('#B7872F')"></span>
+      <span class="sk-swatch" data-c="#b3392c" style="background:#b3392c" onclick="skColor('#b3392c')"></span>
+      <span class="sk-swatch" data-c="#2f8e4e" style="background:#2f8e4e" onclick="skColor('#2f8e4e')"></span>
+      <span class="sk-sep"></span>
+      <button class="sk-btn" data-w="2" onclick="skWidth(2)">thin</button>
+      <button class="sk-btn" data-w="4" onclick="skWidth(4)">med</button>
+      <button class="sk-btn" data-w="8" onclick="skWidth(8)">thick</button>
+      <span class="sk-sep"></span>
+      <button class="sk-btn" onclick="skUndo()">↩ Undo</button>
+      <button class="sk-btn" onclick="skClearConfirm(this)">✕ Clear</button>
+      <button class="sk-btn" id="skGridBtn" onclick="skGridToggle()"># Grid</button>
+      <label class="sk-btn" style="cursor:pointer;">🖼 Photo underlay<input type="file" accept="image/*" style="display:none" onchange="skPhotoPicked(this)"></label>
+    </div>
+    <canvas id="skCanvas" width="1000" height="700"></canvas>
   </div>
 
   <!-- FINANCE -->
@@ -2386,6 +2422,7 @@ function autosave(){
     FIELD_IDS.forEach(function(id){ S.fields[id]=val(id); });
     const copy = JSON.parse(JSON.stringify(S));
     copy.ic.attachments = [];  // dataURLs would blow the localStorage quota
+    if(copy.sketch) copy.sketch = {ops:copy.sketch.ops||[], bg:null, grid:copy.sketch.grid!==false};  // vector ops persist, photo underlay doesn't
     LSTORE.setItem('endureBuilderDraft', JSON.stringify(copy));
   }catch(e){}
 }
@@ -2403,6 +2440,7 @@ function restore(){
     if(!Array.isArray(S.ed.extras)) S.ed.extras = [];
     S.ops = Object.assign({notes:'', tab:'notes'}, saved.ops||{});
     S.ic = Object.assign({mats:[{item:'',supplier:'',stream:'',qty:'',unit:''}], labs:[{task:'',stream:'',days:'',rate:''}], passes:[], commPct:10, sellOv:null, attachments:[]}, saved.ic||{});
+    S.sketch = Object.assign({ops:[], bg:null, grid:true}, saved.sketch||{});
     if(!Array.isArray(S.ic.attachments)) S.ic.attachments = [];
     if(!Array.isArray(S.bundles)) S.bundles = [];
     if(!Array.isArray(S.costLines)) S.costLines = [];
@@ -2600,6 +2638,131 @@ async function generatePdf(){
   btn.disabled=false;
 }
 
+// ---------------- site sketch (vector ops so drafts stay editable) ----------------
+const SK = {tool:'pen', color:'#1A1815', width:4, drawing:false, cur:null};
+function skState(){ if(!S.sketch) S.sketch={ops:[],bg:null,grid:true}; return S.sketch; }
+function skTool(t){ SK.tool=t; skToolbarSync(); }
+function skColor(c){ SK.color=c; skToolbarSync(); }
+function skWidth(w){ SK.width=w; skToolbarSync(); }
+function skToolbarSync(){
+  document.querySelectorAll('#skToolbar .sk-btn[data-tool]').forEach(function(b){ b.classList.toggle('active', b.dataset.tool===SK.tool); });
+  document.querySelectorAll('#skToolbar .sk-swatch').forEach(function(b){ b.classList.toggle('active', b.dataset.c===SK.color); });
+  document.querySelectorAll('#skToolbar .sk-btn[data-w]').forEach(function(b){ b.classList.toggle('active', Number(b.dataset.w)===SK.width); });
+  const g=document.getElementById('skGridBtn'); if(g) g.classList.toggle('active', !!skState().grid);
+}
+function skUndo(){ const st=skState(); st.ops.pop(); skRedraw(); }
+function skClearConfirm(btn){
+  if(btn.dataset.armed){ delete btn.dataset.armed; btn.textContent='✕ Clear'; const st=skState(); st.ops=[]; st.bg=null; skRedraw(); }
+  else { btn.dataset.armed='1'; btn.textContent='✕ Sure?'; setTimeout(function(){ delete btn.dataset.armed; btn.textContent='✕ Clear'; }, 2000); }
+}
+function skGridToggle(){ const st=skState(); st.grid=!st.grid; skToolbarSync(); skRedraw(); }
+function skPhotoPicked(input){
+  const f=input.files && input.files[0]; if(!f) return;
+  const reader=new FileReader();
+  reader.onload=function(e){ skState().bg=e.target.result; skRedraw(); };
+  reader.readAsDataURL(f);
+  input.value='';
+}
+function skDrawOps(ctx, ops, scale){
+  ops.forEach(function(o){
+    ctx.strokeStyle=o.c; ctx.fillStyle=o.c; ctx.lineWidth=o.w*scale; ctx.lineCap='round'; ctx.lineJoin='round';
+    if(o.t==='pen'){
+      if(o.pts.length<2) return;
+      ctx.beginPath(); ctx.moveTo(o.pts[0][0]*scale,o.pts[0][1]*scale);
+      for(let i=1;i<o.pts.length;i++) ctx.lineTo(o.pts[i][0]*scale,o.pts[i][1]*scale);
+      ctx.stroke();
+    } else if(o.t==='line' || o.t==='arrow'){
+      ctx.beginPath(); ctx.moveTo(o.x1*scale,o.y1*scale); ctx.lineTo(o.x2*scale,o.y2*scale); ctx.stroke();
+      if(o.t==='arrow'){
+        const ang=Math.atan2(o.y2-o.y1,o.x2-o.x1), ah=(10+o.w*2)*scale;
+        ctx.beginPath(); ctx.moveTo(o.x2*scale,o.y2*scale);
+        ctx.lineTo(o.x2*scale-ah*Math.cos(ang-0.45), o.y2*scale-ah*Math.sin(ang-0.45));
+        ctx.moveTo(o.x2*scale,o.y2*scale);
+        ctx.lineTo(o.x2*scale-ah*Math.cos(ang+0.45), o.y2*scale-ah*Math.sin(ang+0.45));
+        ctx.stroke();
+      }
+    } else if(o.t==='rect'){
+      ctx.strokeRect(Math.min(o.x1,o.x2)*scale, Math.min(o.y1,o.y2)*scale, Math.abs(o.x2-o.x1)*scale, Math.abs(o.y2-o.y1)*scale);
+    } else if(o.t==='text'){
+      ctx.font='700 '+(o.size*scale)+'px Arial';
+      ctx.fillText(o.s, o.x*scale, o.y*scale);
+    }
+  });
+}
+function skPaint(ctx, W, H, scale, forExport){
+  const st=skState();
+  ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
+  if(st.bg && SK.bgImg && SK.bgImg.src===st.bg){
+    const img=SK.bgImg, fit=Math.min(W/img.width, H/img.height);
+    ctx.globalAlpha=0.55;
+    ctx.drawImage(img, (W-img.width*fit)/2, (H-img.height*fit)/2, img.width*fit, img.height*fit);
+    ctx.globalAlpha=1;
+  }
+  if(st.grid){
+    ctx.strokeStyle='#eee6d4'; ctx.lineWidth=1;
+    for(let x=0;x<=1000;x+=50){ ctx.beginPath(); ctx.moveTo(x*scale,0); ctx.lineTo(x*scale,H); ctx.stroke(); }
+    for(let y=0;y<=700;y+=50){ ctx.beginPath(); ctx.moveTo(0,y*scale); ctx.lineTo(W,y*scale); ctx.stroke(); }
+  }
+  skDrawOps(ctx, st.ops, scale);
+  if(!forExport && SK.cur) skDrawOps(ctx, [SK.cur], scale);
+}
+function skRedraw(){
+  const cv=document.getElementById('skCanvas'); if(!cv) return;
+  const st=skState();
+  if(st.bg && (!SK.bgImg || SK.bgImg.src!==st.bg)){
+    SK.bgImg=new Image(); SK.bgImg.onload=skRedraw; SK.bgImg.src=st.bg; return;
+  }
+  skPaint(cv.getContext('2d'), cv.width, cv.height, 1, false);
+}
+function skExportPng(){
+  // 2x export for crisp printing; returns null when the sketch is empty
+  const st=skState();
+  if(!st.ops.length && !st.bg) return null;
+  const cv=document.createElement('canvas'); cv.width=2000; cv.height=1400;
+  skPaint(cv.getContext('2d'), 2000, 1400, 2, true);
+  return cv.toDataURL('image/png');
+}
+function syncSketchAttachment(){
+  // keep exactly one site-sketch.png in the attachments, always the latest
+  const dataUrl=skExportPng();
+  S.ic.attachments=S.ic.attachments.filter(function(a){return a.name!=='site-sketch.png';});
+  if(dataUrl) S.ic.attachments.unshift({name:'site-sketch.png', mime:'image/png', dataUrl:dataUrl});
+}
+function skPos(cv, ev){
+  const r=cv.getBoundingClientRect();
+  return [Math.round((ev.clientX-r.left)*1000/r.width), Math.round((ev.clientY-r.top)*700/r.height)];
+}
+function initSketch(){
+  const cv=document.getElementById('skCanvas'); if(!cv) return;
+  cv.addEventListener('pointerdown', function(ev){
+    ev.preventDefault(); cv.setPointerCapture(ev.pointerId);
+    const p=skPos(cv,ev);
+    if(SK.tool==='text'){
+      const s=window.prompt('Label text (e.g. "6.2m")'); if(s) { skState().ops.push({t:'text', c:SK.color, size:Math.max(18,SK.width*6), x:p[0], y:p[1], s:s}); skRedraw(); }
+      return;
+    }
+    SK.drawing=true;
+    SK.cur = SK.tool==='pen' ? {t:'pen', c:SK.color, w:SK.width, pts:[p]} : {t:SK.tool, c:SK.color, w:SK.width, x1:p[0], y1:p[1], x2:p[0], y2:p[1]};
+  });
+  cv.addEventListener('pointermove', function(ev){
+    if(!SK.drawing || !SK.cur) return;
+    ev.preventDefault();
+    const p=skPos(cv,ev);
+    if(SK.cur.t==='pen') SK.cur.pts.push(p); else { SK.cur.x2=p[0]; SK.cur.y2=p[1]; }
+    skRedraw();
+  });
+  function up(ev){
+    if(!SK.drawing || !SK.cur) return;
+    SK.drawing=false;
+    const o=SK.cur; SK.cur=null;
+    const moved = o.t==='pen' ? o.pts.length>1 : (o.x1!==o.x2 || o.y1!==o.y2);
+    if(moved) skState().ops.push(o);
+    skRedraw();
+  }
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  skToolbarSync(); skRedraw();
+}
+
 async function generateInternalPdf(){
   // The red-banner Job Budget — PM reference only, never for clients.
   const statusEl = document.getElementById('statusLine');
@@ -2658,6 +2821,7 @@ async function saveJob(){
       return;
     }
     if(!hasCowork()){
+      syncSketchAttachment();
       const t0 = icTotals();
       const internal0 = buildInternalPayload(t0, clientName);
       const resp = await hostedPost({action:'save_job', folder_name:folderName,
@@ -2739,6 +2903,7 @@ if(restored){
   for(const id in boxes){ const el=document.getElementById(id); if(el) el.checked = S.include[boxes[id]]!==false; }
 })();
 setMode(S.manualOnly ? 'manual' : S.mode);
+initSketch();
 syncFinanceInputs();
 refresh();
 loadHostedRates();
