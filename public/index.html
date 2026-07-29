@@ -614,10 +614,10 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
     <div id="manualWrap" class="hidden">
       <table class="rep" id="manualTable">
         <thead><tr>
-          <th style="width:20%">Item</th><th style="width:22%">Detail (client sees)</th>
-          <th style="width:8%">Qty</th><th style="width:10%">Unit cost $</th>
-          <th style="width:11%">Cost $</th><th style="width:9%">Margin %</th>
-          <th style="width:14%">Sell (auto)</th><th></th>
+          <th style="width:17%">Item</th><th style="width:13%">Type (internal)</th><th style="width:18%">Detail (client sees)</th>
+          <th style="width:7%">Qty</th><th style="width:9%">Unit cost $</th>
+          <th style="width:10%">Cost $</th><th style="width:8%">Margin %</th>
+          <th style="width:13%">Sell (auto)</th><th></th>
         </tr></thead>
         <tbody id="manualBody"></tbody>
       </table>
@@ -1475,9 +1475,14 @@ function addCostLine(){ S.costLines.push({label:'',cost:'',labour:'',margin:'',b
 // internal costing auto-fill, cost_lines in the PDF) with no special casing.
 // In Proposal (range) mode they render as "Optional Add-on" option cards.
 function manualLines(){ return S.costLines.filter(function(c){return c.manual;}); }
+// Type drives where the line lands in the internal costing doc (never client-visible):
+// materials (by stream), labour (qty=days, unit=day rate), subbie or fixed cost pass-through.
+const MANUAL_CATS = [
+  ['mat-board','Materials — boards'], ['mat-sub','Materials — subframe'], ['mat-other','Materials — other'],
+  ['labour','Labour'], ['subbie','Subcontractor'], ['fixed','Fixed cost']];
 function addManualItem(){
   S.costLines.push({label:'',desc:'',cost:'',labour:'',margin:'',bundle:'',sel:false,
-    manual:true, qty:'', unit:'', mpct:(Number(S.rc.margin_pct_default)||35)});
+    manual:true, cat:'mat-other', qty:'', unit:'', mpct:(Number(S.rc.margin_pct_default)||35)});
   renderManual(); renderCostLines(); refresh();
 }
 function mSyncMargin(c){
@@ -1516,11 +1521,14 @@ function renderManual(){
       : 'For anything too custom for the calculator — items join the quote as standalone lines, in the totals and the internal budget. Delete a line to take it off the document.');
   document.getElementById('manualBody').innerHTML = S.costLines.map(function(c,i){
     if(!c.manual) return '';
+    const catOpts = MANUAL_CATS.map(function(o){ return '<option value="'+o[0]+'"'+((c.cat||'mat-other')===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('');
+    const isLab = (c.cat||'')==='labour';
     return `<tr>
       <td><input type="text" value="${escA(c.label)}" oninput="mEdit(${i},'label',this.value)" placeholder="e.g. Custom bench seat"></td>
+      <td><select onchange="mEdit(${i},'cat',this.value); renderManual();">${catOpts}</select></td>
       <td><input type="text" value="${escA(c.desc||'')}" oninput="mEdit(${i},'desc',this.value)" placeholder="Supply & install"></td>
-      <td><input type="number" value="${escA(c.qty)}" oninput="mEdit(${i},'qty',this.value)"></td>
-      <td><input type="number" value="${escA(c.unit)}" oninput="mEdit(${i},'unit',this.value)"></td>
+      <td><input type="number" value="${escA(c.qty)}" oninput="mEdit(${i},'qty',this.value)" title="${isLab?'Days':'Quantity'}" placeholder="${isLab?'days':''}"></td>
+      <td><input type="number" value="${escA(c.unit)}" oninput="mEdit(${i},'unit',this.value)" title="${isLab?'Day rate $':'Cost per unit $'}" placeholder="${isLab?'rate':''}"></td>
       <td><input type="number" id="mn_cost_${i}" value="${escA(c.cost)}" oninput="mEdit(${i},'cost',this.value)"></td>
       <td><input type="number" id="mn_mpct_${i}" value="${escA(c.mpct)}" oninput="mEdit(${i},'mpct',this.value)"></td>
       <td style="padding-top:9px;font-weight:600;"><span id="mn_sell_${i}">${fmt$(lineSellInc(c))}</span> <span style="font-weight:400;color:var(--grey);font-size:10px;">inc GST</span>
@@ -2029,9 +2037,26 @@ function autoFillInternal(){
   if(!S.icAuto || S.mode!=='fixed') return;
   const lines = inCostLines();
   if(!lines.length) return;
-  const mats=[], labs=[];
+  const mats=[], labs=[], passes=[];
   const ld = Number(S.rc.labour_day)||1;
   lines.forEach(function(c){
+    if(c.manual){
+      const cost=Number(c.cost)||0, qty=Number(c.qty)||0, unit=Number(c.unit)||0, cat=c.cat||'mat-other';
+      if(cat==='labour'){
+        if(qty>0 && unit>0) labs.push({task:c.label, stream:'Manual', days:qty, rate:unit});
+        else if(cost>0) labs.push({task:c.label, stream:'Manual', days:1, rate:Math.round(cost)});
+      } else if(cat==='subbie'){
+        // IC pass margin is markup-on-cost; the line's margin is $, so derive the markup that reproduces it
+        if(cost>0) passes.push({label:c.label, type:'Subbie', cost:Math.round(cost), margin:Math.round((Number(c.margin)||0)/cost*100)});
+      } else if(cat==='fixed'){
+        if(cost>0) passes.push({label:c.label, type:'At-cost', cost:Math.round(cost), margin:''});
+      } else {
+        const stream = cat==='mat-board' ? 'Boards' : cat==='mat-sub' ? 'Subframe' : 'Other';
+        if(qty>0 && unit>0) mats.push({item:c.label, supplier:'', stream:stream, qty:qty, unit:unit});
+        else if(cost>0) mats.push({item:c.label, supplier:'', stream:stream, qty:1, unit:Math.round(cost)});
+      }
+      return;
+    }
     const stream = (c.bundle||'Standalone');
     if(Number(c.costSub) || Number(c.costBoard)){
       if(Number(c.costSub)) mats.push({item:'Subframe — materials', supplier:'', stream:stream, qty:1, unit:Number(c.costSub)});
@@ -2043,7 +2068,6 @@ function autoFillInternal(){
     }
     if(Number(c.labour)) labs.push({task:c.label+' — labour', stream:stream, days:+((Number(c.labour)||0)/ld).toFixed(1), rate:ld});
   });
-  const passes = [];
   (S.fixedCosts||[]).filter(function(c){return c.label && Number(c.amount)>0;}).forEach(function(c){
     passes.push({label:c.label, type:'At-cost', cost:Math.round(Number(c.amount)/1.1), margin:''});
   });
@@ -2143,8 +2167,20 @@ function renderIcFiles(){
 }
 function pvInternal(){
   const t = icTotals();
-  const matRows = S.ic.mats.filter(function(m){return m.item;}).map(function(m){
-    return '<tr><td>'+esc(m.item)+'</td><td>'+esc(m.supplier)+'</td><td>'+esc(m.stream)+'</td><td class="r">'+esc(m.qty)+'</td><td class="r">'+fmt$2(m.unit)+'</td><td class="r">'+fmt$2((Number(m.qty)||0)*(Number(m.unit)||0))+'</td></tr>'; }).join('');
+  // Materials grouped by stream/type, with a subtotal per type when there's more than one
+  const matsF = S.ic.mats.filter(function(m){return m.item;});
+  const matStreams = [];
+  matsF.forEach(function(m){ const s=m.stream||'Other'; if(matStreams.indexOf(s)<0) matStreams.push(s); });
+  let matRows='';
+  matStreams.forEach(function(s){
+    const grp = matsF.filter(function(m){return (m.stream||'Other')===s;});
+    matRows += grp.map(function(m){
+      return '<tr><td>'+esc(m.item)+'</td><td>'+esc(m.supplier)+'</td><td>'+esc(m.stream)+'</td><td class="r">'+esc(m.qty)+'</td><td class="r">'+fmt$2(m.unit)+'</td><td class="r">'+fmt$2((Number(m.qty)||0)*(Number(m.unit)||0))+'</td></tr>'; }).join('');
+    if(matStreams.length>1){
+      const sub = grp.reduce(function(a,m){return a+(Number(m.qty)||0)*(Number(m.unit)||0);},0);
+      matRows += '<tr><td colspan="5" style="font-weight:600;color:#666;">'+esc(s)+' — subtotal</td><td class="r" style="font-weight:600;color:#666;">'+fmt$2(sub)+'</td></tr>';
+    }
+  });
   const labRows = S.ic.labs.filter(function(l){return l.task;}).map(function(l){
     return '<tr><td>'+esc(l.task)+'</td><td>'+esc(l.stream)+'</td><td class="r">'+esc(l.days)+'</td><td class="r">'+fmt$2(l.rate)+'</td><td class="r">'+fmt$2((Number(l.days)||0)*(Number(l.rate)||0))+'</td></tr>'; }).join('');
   const passRows = S.ic.passes.filter(function(p){return p.label;}).map(function(p){
