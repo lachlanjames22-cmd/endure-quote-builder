@@ -35,8 +35,15 @@ internal-costing.json, site photos). Deploys to **quote.enduredecks.com.au**.
   marketing site (enduredecks-website, hosted on Vercel — untouched by this).
 - Payment schedule default: **5 / 35 / 25 / 25 / 10** (deposit / pre-start /
   materials / structural / handover), including the step-body copy percentages.
-- Two document lanes: Proposal (`mode:"range"`, priced range + design-service
-  upsell) vs Quote (`mode:"fixed"`, itemised fixed price + accept/deposit).
+- Three builder lanes: Proposal (`mode:"range"`, priced range + design-service
+  upsell), Quote (`mode:"fixed"`, itemised fixed price + accept/deposit), and
+  Manual (Quote) — a line-item grid (`S.manualOnly`, Cowork-built 2026-07-29)
+  for jobs the rate card can't price. Manual emits standard `mode:"fixed"`
+  job-data; the renderer/schema are untouched. Each manual line carries a
+  `cat` type (mat-board / mat-sub / mat-other / labour / subbie / fixed) that
+  routes it into the internal costing doc's Materials (by stream, with
+  per-type subtotals) / Labour / Pass-through tables via `autoFillInternal()`.
+  `sample_manual.json` is the render test for this lane.
 - Internal costing (internal-costing.json / the red-banner page) is PM-only and
   NEVER merged into the client document.
 - Rates live in a Google Sheet — editing the sheet updates the tool, no deploy.
