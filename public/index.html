@@ -711,6 +711,8 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
     <div class="totals-strip" id="icSummary"></div>
     <div class="warn" id="icWarn"></div>
 
+    <button class="add-btn" style="margin-top:10px;font-weight:700;" onclick="generateInternalPdf()">⬇ Internal budget PDF (PM only)</button>
+
     <label style="margin-top:12px;">Photo attachments</label>
     <span class="hint">Site photos etc — uploaded into the job's Drive folder when you save.</span>
     <input type="file" id="ic_files" accept="image/*" multiple onchange="icFilesPicked(this)">
@@ -2479,6 +2481,9 @@ function buildInternalPayload(t, clientName){
   return {
     _NOTICE: 'INTERNAL — not for client distribution. Never merge into job-data.json or the client PDF.',
     client_name: clientName, project_type: val('project_type'), mode: S.mode,
+    location: val('location'), proposal_date: effDate()||val('proposal_date'),
+    context_line: S.mode==='fixed' ? (val('fx_package_label')||'') : '',
+    sell_override: S.ic.sellOv!==null,
     costings_sheet_url: val('ic_sheet_url') || null,
     ops_notes: val('ops_notes') || '',
     materials: S.ic.mats.filter(function(m){return m.item;}),
@@ -2593,6 +2598,40 @@ async function generatePdf(){
     statusEl.className='status-line err'; statusEl.textContent='PDF failed: '+e.message;
   }
   btn.disabled=false;
+}
+
+async function generateInternalPdf(){
+  // The red-banner Job Budget — PM reference only, never for clients.
+  const statusEl = document.getElementById('statusLine');
+  const clientName = val('client_name').trim() || 'Client';
+  const internal = buildInternalPayload(icTotals(), clientName);
+  const slug = clientName.replace(/[^A-Za-z0-9]+/g,'_');
+  try{
+    if(ENDURE_ENDPOINT === 'PASTE_WEBAPP_URL_HERE'){
+      downloadFile(slug+'_internal-costing.json', JSON.stringify(internal, null, 2));
+      statusEl.className='status-line ok';
+      statusEl.textContent='No hosted renderer here — internal-costing.json downloaded. Attach it in chat and ask Claude for the budget PDF.';
+      return;
+    }
+    statusEl.className='status-line'; statusEl.textContent='Rendering internal budget…';
+    const res = await fetch(ENDURE_ENDPOINT, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({action:'render_internal', token:TEAM_TOKEN, internal:internal, job_data:buildJobData(clientName)})});
+    const ct = res.headers.get('Content-Type')||'';
+    if(ct.indexOf('application/pdf')===-1){
+      let msg='Render failed ('+res.status+')';
+      try{ const j=await res.json(); if(j&&j.error) msg=j.error; }catch(e2){}
+      throw new Error(msg);
+    }
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'INTERNAL_Job_Budget_'+slug+'.pdf';
+    a.click(); URL.revokeObjectURL(a.href);
+    statusEl.className='status-line ok';
+    statusEl.textContent='Internal budget PDF generated — PM reference only, never send to a client.';
+  }catch(e){
+    statusEl.className='status-line err'; statusEl.textContent='Internal budget failed: '+e.message;
+  }
 }
 
 async function saveJob(){

@@ -20,6 +20,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts"))
+import render_internal  # noqa: E402  (imports weasyprint)
 import render_proposal  # noqa: E402  (imports weasyprint)
 
 from google.oauth2 import service_account  # noqa: E402
@@ -80,6 +81,8 @@ async def endure_post(request: Request):
             return JSONResponse(save_job(body))
         if action == "render":
             return render_pdf(body)
+        if action == "render_internal":
+            return render_internal_pdf(body)
     except Exception as e:  # noqa: BLE001
         return bad(e)
     return bad("unknown action")
@@ -148,6 +151,13 @@ def save_job(body):
     put_json("job-data.json", body.get("job_data"))
     if body.get("internal"):
         put_json("internal-costing.json", body["internal"])
+        try:  # also file the rendered Job Budget PDF; the save still succeeds without it
+            pdf_bytes, pdf_name = _internal_pdf_bytes(body["internal"], body.get("job_data"))
+            media = MediaIoBaseUpload(io.BytesIO(pdf_bytes), mimetype="application/pdf")
+            drive.files().create(body={"name": pdf_name, "parents": [folder["id"]]},
+                                 media_body=media, supportsAllDrives=True).execute()
+        except Exception:  # noqa: BLE001
+            pass
     for a in body.get("attachments") or []:
         media = MediaIoBaseUpload(io.BytesIO(base64.b64decode(a["b64"])), mimetype=a.get("mime") or "image/jpeg")
         drive.files().create(body={"name": a["name"], "parents": [folder["id"]]},
@@ -181,6 +191,28 @@ def render_pdf(body):
             pass  # PDF still returns to the browser even if Drive filing fails
     return Response(content=pdf_bytes, media_type="application/pdf",
                     headers={"Content-Disposition": f'attachment; filename="{slug}_Proposal.pdf"'})
+
+
+# ── render internal (PM-only Job Budget — never for clients) ────────────────
+def _internal_pdf_bytes(internal, job_data):
+    client = (internal.get("client_name") or "Client").strip()
+    slug = re.sub(r"[^A-Za-z0-9]+", "_", client).strip("_") or "Client"
+    with tempfile.TemporaryDirectory() as td:
+        out_pdf = os.path.join(td, "internal.pdf")
+        render_internal.render(internal, job_data, out_pdf)
+        return open(out_pdf, "rb").read(), f"INTERNAL_Job_Budget_{slug}.pdf"
+
+
+def render_internal_pdf(body):
+    """POST {action:'render_internal', internal:{...}, job_data:{...}} → the
+    red-banner Job Budget PDF. job_data is optional but enables the totals
+    reconciliation check and the options-on-the-table line."""
+    internal = body.get("internal")
+    if not internal:
+        return bad("internal required")
+    pdf_bytes, pdf_name = _internal_pdf_bytes(internal, body.get("job_data"))
+    return Response(content=pdf_bytes, media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="{pdf_name}"'})
 
 
 # ── static: the builder page ────────────────────────────────────────────────
