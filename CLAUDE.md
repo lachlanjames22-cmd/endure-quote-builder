@@ -48,21 +48,25 @@ internal-costing.json, site photos). Deploys to **quote.enduredecks.com.au**.
   NEVER merged into the client document.
 - Rates live in a Google Sheet — editing the sheet updates the tool, no deploy.
 
-## Deploy state / the journey (where we got to)
-1. ✅ Code built, tested end-to-end IN-SESSION: sample renders (Pantons, and a
-   Merbau-hero variant proving per-product hero images), server boot, token
-   gate, render-over-API returns application/pdf, page + assets serve.
-2. ⏳ GitHub: repo `lachlanjames22-cmd/endure-quote-builder` created by Lachy,
-   but the Claude GitHub App connection was stale — push was pending a
-   reconnect (claude.ai → Settings → Connectors → GitHub) at handover time.
-3. ⏳ Railway: not yet created. Steps: New Project → Deploy from GitHub repo →
-   Dockerfile auto-detected → set env vars → get *.up.railway.app test URL.
-4. ⏳ Env vars (names in .env.example): GOOGLE_SERVICE_ACCOUNT (full JSON, one
-   line), RATE_SHEET_ID, INCOMING_JOBS_ID, TEAM_TOKEN. Values live in Lachy's
-   old Vercel setup / README history — do not commit them.
-5. ⏳ DNS: quote.enduredecks.com.au CNAME → Railway (registrar side).
-6. ⏳ Test run: rates load · fake job → Generate PDF → compare vs a known-good
-   document · Save to Drive → folder in Operations → Incoming Jobs.
+## Deploy state (LIVE as of 2026-07-29)
+1. ✅ GitHub: `lachlanjames22-cmd/endure-quote-builder`, default flow is
+   branch → PR → merge to `main` → Railway auto-deploys (~1 min). Lachy's
+   standing instruction: Claude merges and pushes on his behalf.
+2. ✅ Railway: live on Hobby plan, deploys from `main`, env vars set
+   (names in .env.example). TEAM_TOKEN must equal the token hardcoded in
+   public/index.html (`endure-decks-2026` at time of writing) — mismatch
+   shows as "bad token" on every action.
+3. ✅ Service account: lives in Lachy's PERSONAL gmail Google Cloud (work
+   Workspace org blocks key creation — deliberate workaround). Invited as
+   Content Manager on the shared drive + Editor on the rate sheet.
+4. ✅ Verified in production: rates load, Generate PDF, Save to Drive.
+5. 🟡 DNS: quote.enduredecks.com.au — domain's nameservers are Vercel's
+   (marketing site), so the CNAME lives in Vercel → Domains → DNS Records,
+   NOT the registrar. Record added 2026-07-29, awaiting Railway's green tick.
+6. Rate sheet gaps: only Merbau has a real board price — Jarrah, Spotted Gum,
+   Eva-Last ×2, MoistureShield ×2, aluminium system and linear extras are
+   FILL. Two duplicate rate-card sheets exist in Drive — the live one is
+   RATE_SHEET_ID; the others should be renamed/binned.
 
 ## v2 (agreed, not built): the intelligence layer
 The old workflow had Claude "generate the proposal" from a saved job folder and
@@ -72,6 +76,21 @@ fix typos, catch wrong hero images, reconcile figures vs the costing sheet
 (flag >~1% mismatch), warn GP% < 30% and GP/install-day < $1,000. Build as a
 server-side `action:'polish'` calling the Claude API. Hard rule: **the AI may
 rewrite words and raise flags but must never change a number on its own.**
+
+## Roadmap (Lachy, 2026-07-29 — agreed direction, build "another time")
+1. **Similar projects page** — a bank of past projects (photos + short blurb)
+   the rep can pick from per job; selected ones render as a "similar projects
+   we've built" page in the client document. Bank should live in Drive (rep
+   adds projects without a deploy), loaded via the API like rates.
+2. **Onsite companion flow** — a simplified mobile-first lane for site visits:
+   preloaded site-visit questions, draw/sketch on canvas, attach photos, then
+   either (a) capture everything to the job's Drive folder ready for an
+   office-built proposal, or (b) onsite fixed quote → generate the PDF and
+   send it to the client while still on site. Same host, same job-data
+   contract, same renderer — it's a new front door, not a new system. Note:
+   "send to client on site" is the tool's first direct client touch — sending
+   mechanism (email from whose address, wording) needs Lachy's sign-off.
+3. Ongoing small tweaks as Matt uses it.
 
 ## Google side (one-time, Lachy's accounts)
 Service account with Drive + Sheets APIs enabled, added as Content Manager on
