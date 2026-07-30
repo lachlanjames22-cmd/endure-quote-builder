@@ -44,6 +44,12 @@ internal-costing.json, site photos). Deploys to **quote.enduredecks.com.au**.
   routes it into the internal costing doc's Materials (by stream, with
   per-type subtotals) / Labour / Pass-through tables via `autoFillInternal()`.
   `sample_manual.json` is the render test for this lane.
+- Recipe builder (Cowork-built, integrated 2026-07-29): compose a hero item
+  from ingredients (materials by item, labour by task, margin as % of sell or
+  $/day × days). Emits ONE cost line + hero bundle; ingredients live on
+  `b.recipe` and expand into the internal costing via `autoFillInternal()`.
+  Client document only ever sees the sell price. `S.recipeLib` (library)
+  survives New job and travels in the setup export.
 - Internal costing (internal-costing.json / the red-banner page) is PM-only and
   NEVER merged into the client document.
 - Rates live in a Google Sheet — editing the sheet updates the tool, no deploy.
