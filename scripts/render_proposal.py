@@ -152,7 +152,11 @@ text-transform:uppercase;color:var(--grey);padding:2.2mm 5mm;font-weight:500;}
 .cb2-block{border:1px solid var(--rule);margin-top:3mm;}
 .cb2-head{display:grid;grid-template-columns:1fr 30mm;background:var(--dark);color:var(--white);padding:3mm 6mm;font-size:10pt;}
 .cb2-head>div:last-child{text-align:right;font-size:8pt;letter-spacing:.15em;}
+.cb2-subhead{padding:3.5mm 6mm 1mm;font-size:8pt;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--ink);border-top:1.5px solid var(--ink);margin-top:1.5mm;}
 .cb2-line{display:grid;grid-template-columns:1fr 30mm;padding:3mm 6mm;border-bottom:1px solid var(--rule);font-size:10pt;}
+.concept-wrap{margin-top:4mm;border:1px solid var(--rule);background:var(--cream);padding:4mm;text-align:center;}
+.concept-wrap img{max-width:100%;max-height:170mm;object-fit:contain;}
+.concept-cap{font-size:9pt;color:var(--grey);margin-top:2.5mm;font-style:italic;}
 .cb2-line .desc{color:var(--grey);font-size:8.5pt;margin-top:0.5mm;}
 .cb2-line .amount{text-align:right;}
 .cb2-total{display:grid;grid-template-columns:1fr 50mm;background:var(--dark);color:var(--white);padding:4mm 6mm;align-items:center;}
@@ -530,11 +534,31 @@ def page_your_project(d, n, status_label):
   <div class="yp-zones">{zones}</div>
   <div class="yp-note">Built to the Endure 20-Year Standard. {fp.get("footnote","")}</div>
 {foot(n)}</div></div>'''
+def page_concept(d, n, status_label):
+    """Optional concept-plan page: preset layout, per-job uploaded image.
+    Renders only when include.concept is on and an image was uploaded."""
+    cp = d.get('concept') or {}
+    cap = f'<div class="concept-cap">{cp["caption"]}</div>' if cp.get('caption') else ''
+    lead = cp.get('lead') or ('The concept drawn for your space &mdash; the design the numbers in this '
+                              'document are built around.')
+    return f'''<div class="page">{head(f"Concept &middot; {n:02d}")}<div class="pbody">
+  <div class="eyebrow">Your Concept</div>
+  {title_html(d, "concept", 'This is your <span class="mustard">project.</span>')}
+  <p class="lead">{lead}</p>
+  <div class="concept-wrap"><img src="{cp.get("image_data", "")}">{cap}</div>
+{foot(n)}</div></div>'''
+
+
 def page_cost_fixed(d, n, status_label):
     fx = d['fixed']
-    lines = ''.join(
-        f'<div class="cb2-line"><div>{l["label"]}<div class="desc">{l["desc"]}</div></div><div class="amount">{fmt_money(l["amount"], 2)}</div></div>'
-        for l in fx['cost_lines'])
+    lines, saw_fixed = '', False
+    for l in fx['cost_lines']:
+        # black "Fixed costs" subhead separates per-job fixed lines from the project items
+        if l.get('group') == 'fixed' and not saw_fixed:
+            saw_fixed = True
+            lines += '<div class="cb2-subhead">Fixed costs</div>'
+        lines += (f'<div class="cb2-line"><div>{l["label"]}<div class="desc">{l["desc"]}</div></div>'
+                  f'<div class="amount">{fmt_money(l["amount"], 2)}</div></div>')
     return f'''<div class="page">{head(f"Cost Breakdown &middot; {n:02d}")}<div class="pbody">
   <div class="eyebrow">Pricing Breakdown</div>
   <div class="title">Cost <span class="mustard">breakdown.</span></div>
@@ -610,6 +634,8 @@ def render(d, out_pdf):
     pages = [page_cover(d, n)]; n += 1
     if on('approach'):
         pages.append(page_approach(d, n, status_label)); n += 1
+    if inc.get('concept') and (d.get('concept') or {}).get('image_data'):
+        pages.append(page_concept(d, n, status_label)); n += 1
     if mode == 'fixed':
         pages.append(page_your_project(d, n, status_label)); n += 1
         pages.append(page_cost_fixed(d, n, status_label)); n += 1
