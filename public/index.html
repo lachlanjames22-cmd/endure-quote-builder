@@ -221,6 +221,10 @@ text-transform:uppercase;color:var(--grey);padding:2.2mm 5mm;font-weight:500;}
 #pvRoot .cb2-block{border:1px solid var(--rule);margin-top:3mm;}
 #pvRoot .cb2-head{display:grid;grid-template-columns:1fr 30mm;background:var(--dark);color:var(--white);padding:3mm 6mm;font-size:10pt;}
 #pvRoot .cb2-head>div:last-child{text-align:right;font-size:8pt;letter-spacing:.15em;}
+#pvRoot .cb2-subhead{padding:3.5mm 6mm 1mm;font-size:8pt;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--ink);border-top:1.5px solid var(--ink);margin-top:1.5mm;}
+#pvRoot .concept-wrap{margin-top:4mm;border:1px solid var(--rule);background:var(--cream);padding:4mm;text-align:center;}
+#pvRoot .concept-wrap img{max-width:100%;max-height:170mm;object-fit:contain;}
+#pvRoot .concept-cap{font-size:9pt;color:var(--grey);margin-top:2.5mm;font-style:italic;}
 #pvRoot .cb2-line{display:grid;grid-template-columns:1fr 30mm;padding:3mm 6mm;border-bottom:1px solid var(--rule);font-size:10pt;}
 #pvRoot .cb2-line .desc{color:var(--grey);font-size:8.5pt;margin-top:0.5mm;}
 #pvRoot .cb2-line .amount{text-align:right;}
@@ -358,6 +362,19 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
         <input type="checkbox" id="inc_approach" checked onchange="S.include.approach=this.checked; refresh();">
         <label for="inc_approach" style="margin:0;">Include "About Endure" page in the document</label>
       </div>
+      <div class="field check-row" style="grid-column:1/3;">
+        <input type="checkbox" id="inc_concept" onchange="S.include.concept=this.checked; renderConcept(); refresh();">
+        <label for="inc_concept" style="margin:0;">Include "Your Concept" page (concept plan / render)</label>
+      </div>
+      <div id="conceptWrap" class="hidden" style="grid-column:1/3;background:var(--cream);border:1px solid var(--rule);border-radius:6px;padding:10px;">
+        <span class="hint">Preset "This is your project" page after About Endure, before the project pages. Upload the concept plan or render for this job (image files — a PDF plan needs a screenshot first). Re-upload after a page reload — images don't persist in drafts.</span>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:6px;">
+          <label class="sk-btn" style="cursor:pointer;">🖼 Upload concept image<input type="file" accept="image/*" style="display:none" onchange="conceptPicked(this)"></label>
+          <span id="conceptThumb" style="font-size:11.5px;color:var(--grey);"></span>
+        </div>
+        <div class="field" style="margin-top:8px;"><label>Caption (optional)</label>
+          <input type="text" id="concept_caption" placeholder="Concept plan — rear alfresco deck, v2" oninput="S.concept.caption=this.value; refresh();"></div>
+      </div>
       <div style="grid-column:1/3;"><details class="rates"><summary>Section headlines (optional overrides)</summary>
         <p class="desc" style="margin-top:8px;">Blank = the standard headline. Type to replace the big title on that page for this job only.</p>
         <div class="grid2">
@@ -488,7 +505,7 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
             <input type="number" id="ex_qty" placeholder="3.6"></div>
           <div class="field"><label>Rate $/lm (our cost)</label><span class="hint">From rate sheet — editable</span>
             <input type="number" id="ex_rate"></div>
-          <div class="field"><label>Materials cost $ (auto)</label>
+          <div class="field"><label>Materials cost $</label><span class="hint">Auto = lm × rate. No rate? Type the cost — it's used instead</span>
             <input type="number" id="ex_cost"></div>
           <div class="field"><label>Labour $</label>
             <input type="number" id="ex_labour"></div>
@@ -905,12 +922,13 @@ function defaultState(){
     qc: {area:'', subframe:'Standard (timber, stirrups)', board:'Merbau 140mm', boardCustom:'', boardCostCustom:'', daysOv:null, marginOv:null, jobDaysOv:null, mults:[], delivery:'', bins:'', demo:''},
     stdOverrides: {},
     costLines: [],
-    ex: {type:'Stairs', custom:'', qty:'', rateOv:null, labour:'', margin:''},
+    ex: {type:'Stairs', custom:'', qty:'', rateOv:null, costOv:null, labour:'', margin:''},
     ed: {extras:[], editingName:null, origBoard:null},
     calcTab:'deck',
     bundles: [],
     icAuto: true,
-    include: {approach:true, finance:true, project_run:true},
+    include: {approach:true, finance:true, project_run:true, concept:false},
+    concept: {image:null, caption:''},
     zones: [],
     finance: {amount:null, amountOv:false, apr:9.99, wk3Ov:null, wk5Ov:null, wk7Ov:null, lowOv:null, highOv:null, label:''},
     steps: [
@@ -1032,7 +1050,7 @@ function heroTotals(){
   });
 }
 function allCostLines(){
-  const std = stdLines().map(l=>({label:l.label, desc:l.working + (l.overridden?' (adjusted)':''), amount:l.amount}));
+  const std = stdLines().map(l=>({label:l.label, desc:l.working + (l.overridden?' (adjusted)':''), amount:l.amount, group:'fixed'}));
   const extra = inCostLines().map(function(c){
     return {label:c.label, desc:c.desc||'Supply & install', amount:lineSellInc(c)};
   });
@@ -1087,7 +1105,14 @@ function heroDesc(b){ return b.desc_ov || (b.name+' package, supplied and instal
 // ---- extras calc ----
 function exLinear(){ return S.rc.linear.find(function(l){return l.name===S.ex.type;}); }
 function exRate(){ if(S.ex.rateOv!==null&&S.ex.rateOv!=='') return Number(S.ex.rateOv); const l=exLinear(); return l?(Number(l.rate)||0):0; }
-function exCost(){ return Math.round((Number(S.ex.qty)||0)*exRate()); }
+function exCostAuto(){ return Math.round((Number(S.ex.qty)||0)*exRate()); }
+// Rate wins when it produces a cost; otherwise the hand-typed materials cost stands.
+function exCost(){
+  const auto = exCostAuto();
+  if(S.ex.costOv!==null && S.ex.costOv!=='' && auto<=0) return Number(S.ex.costOv);
+  if(auto>0) return auto;
+  return (S.ex.costOv!==null && S.ex.costOv!=='') ? Number(S.ex.costOv) : 0;
+}
 function exName(){ return S.ex.type===CUSTOM ? (S.ex.custom||'Extra') : S.ex.type; }
 function exSell(){ return exCost()+(Number(S.ex.labour)||0)+(Number(S.ex.margin)||0); }
 function setCalcTab(t){
@@ -1116,12 +1141,12 @@ function renderEx(){
   const po=document.getElementById('ex_partof');
   if(po){ const first=(S.bundles.find(function(b){return b.inCost!==false;})||{}).name||''; po.innerHTML = bundleOptions(S.ex.partOfSel!==undefined?S.ex.partOfSel:first); }
 }
-function onExTypeChange(){ S.ex.type=val('ex_type'); S.ex.rateOv=null; renderEx(); }
+function onExTypeChange(){ S.ex.type=val('ex_type'); S.ex.rateOv=null; S.ex.costOv=null; renderEx(); }
 function addExtraToPackage(){
   if(!exName() || exSell()<=0){ notify('Give the extra a name and a price first.'); return; }
   const qtyBit = S.ex.qty ? (S.ex.qty+'lm — ') : '';
   S.ed.extras.push({label:exName(), desc:qtyBit+'supply & install', cost:exCost(), labour:Number(S.ex.labour)||0, margin:Number(S.ex.margin)||0});
-  S.ex.qty=''; S.ex.labour=''; S.ex.margin='';
+  S.ex.qty=''; S.ex.labour=''; S.ex.margin=''; S.ex.costOv=null;
   renderEdExtras(); renderEx(); refresh();
 }
 function renderEdExtras(){
@@ -1923,8 +1948,20 @@ function pvYourProject(n){
     <div class="yp-note">Built to the Endure 20-Year Standard. ${esc(val('fx_footnote'))}</div>
   ${pvFoot(n)}</div></div>`;
 }
+function pvConcept(n){
+  const cap = S.concept.caption ? '<div class="concept-cap">'+esc(S.concept.caption)+'</div>' : '';
+  return `<div class="page">${pvHead('Concept · '+String(n).padStart(2,'0'))}<div class="pbody">
+    <div class="eyebrow">Your Concept</div><div class="title">${effTitle('concept','This is your <span class="mustard">project.</span>')}</div>
+    <p class="lead">The concept drawn for your space — the design the numbers in this document are built around.</p>
+    <div class="concept-wrap"><img src="${S.concept.image}">${cap}</div>
+  ${pvFoot(n)}</div></div>`;
+}
 function pvCostFixed(n){
-  const lines = allCostLines().map(function(l){ return `<div class="cb2-line"><div>${esc(l.label)}<div class="desc">${esc(l.desc)}</div></div><div class="amount">${fmt$2(l.amount)}</div></div>`; }).join('');
+  let sawFixed=false;
+  const lines = allCostLines().map(function(l){
+    let h='';
+    if(l.group==='fixed' && !sawFixed){ sawFixed=true; h='<div class="cb2-subhead">Fixed costs</div>'; }
+    return h+`<div class="cb2-line"><div>${esc(l.label)}<div class="desc">${esc(l.desc)}</div></div><div class="amount">${fmt$2(l.amount)}</div></div>`; }).join('');
   const tot = totalInc();
   return `<div class="page">${pvHead('Cost Breakdown · '+String(n).padStart(2,'0'))}<div class="pbody">
     <div class="eyebrow">Pricing Breakdown</div><div class="title">Cost <span class="mustard">breakdown.</span></div>
@@ -2259,7 +2296,7 @@ function pvInternal(){
   </div>`;
 }
 
-const PV_NAMES = {cover:'Cover', approach:'About Endure', options:'Options', scope:'Scope & Assumptions', project:'Your Project', cost:'Cost Breakdown', finance:'Finance', approval:'Approval & Sign', run:'Project Run', internal:'INTERNAL — PM only'};
+const PV_NAMES = {cover:'Cover', approach:'About Endure', concept:'Your Concept', options:'Options', scope:'Scope & Assumptions', project:'Your Project', cost:'Cost Breakdown', finance:'Finance', approval:'Approval & Sign', run:'Project Run', internal:'INTERNAL — PM only'};
 let pvMode = 'follow';
 let pvActive = 'cover';
 function togglePvMode(){
@@ -2289,6 +2326,7 @@ function buildPages(){
   let n=1;
   pages.push(['cover', pvCover()]); n++;
   if(S.include.approach){ pages.push(['approach', pvApproach(n)]); n++; }
+  if(S.include.concept && S.concept.image){ pages.push(['concept', pvConcept(n)]); n++; }
   if(S.mode==='fixed'){
     pages.push(['project', pvYourProject(n)]); n++;
     pages.push(['cost', pvCostFixed(n)]); n++;
@@ -2366,6 +2404,10 @@ function refresh(){
   }
   S.ex.custom=val('ex_custom'); if(val('ex_qty')!==S.ex.qty && (!ae0||ae0.id!=='ex_qty')){} 
   if(ae0 && ae0.id==='ex_qty') S.ex.qty=val('ex_qty');
+  if(ae0 && ae0.id==='ex_cost'){
+    const v = val('ex_cost');
+    S.ex.costOv = (v!=='' && Number(v)!==exCostAuto()) ? v : null;
+  }
   if(ae0 && ae0.id==='ex_labour') S.ex.labour=val('ex_labour');
   if(ae0 && ae0.id==='ex_margin') S.ex.margin=val('ex_margin');
   if(val('rc_labour')!=='') S.rc.labour_day=Number(val('rc_labour'));
@@ -2423,6 +2465,7 @@ function autosave(){
     const copy = JSON.parse(JSON.stringify(S));
     copy.ic.attachments = [];  // dataURLs would blow the localStorage quota
     if(copy.sketch) copy.sketch = {ops:copy.sketch.ops||[], bg:null, grid:copy.sketch.grid!==false};  // vector ops persist, photo underlay doesn't
+    if(copy.concept) copy.concept = {caption:copy.concept.caption||'', image:null};  // concept image too big for drafts
     LSTORE.setItem('endureBuilderDraft', JSON.stringify(copy));
   }catch(e){}
 }
@@ -2444,7 +2487,8 @@ function restore(){
     if(!Array.isArray(S.ic.attachments)) S.ic.attachments = [];
     if(!Array.isArray(S.bundles)) S.bundles = [];
     if(!Array.isArray(S.costLines)) S.costLines = [];
-    S.include = Object.assign({approach:true, finance:true, project_run:true}, saved.include||{});
+    S.include = Object.assign({approach:true, finance:true, project_run:true, concept:false}, saved.include||{});
+    S.concept = Object.assign({image:null, caption:''}, saved.concept||{});
     if(!Array.isArray(S.fixedCosts) || !S.fixedCosts.length) S.fixedCosts = def.fixedCosts;
     const savedRc = saved.rc||{};
     if((savedRc.rates_version||1) < RATECARD.rates_version){
@@ -2543,7 +2587,8 @@ function buildJobData(clientName){
     mode:S.mode, project_type:val('project_type'), client_name:clientName,
     cover_subtitle:val('cover_subtitle'), prepared_for:effPreparedFor(), location:val('location'),
     proposal_date:effDate()||val('proposal_date'), status_label:effStatus(), eyebrow_tag:effEyebrow(),
-    include:{approach:!!S.include.approach, finance:!!S.include.finance, project_run:!!S.include.project_run},
+    include:{approach:!!S.include.approach, finance:!!S.include.finance, project_run:!!S.include.project_run,
+      concept:!!(S.include.concept && S.concept && S.concept.image)},
     titles:(function(){ const t={}; ['approach','your_project','finance','approval','project_run'].forEach(function(k){ if(val('t_'+k)) t[k]=val('t_'+k); }); return Object.keys(t).length?t:undefined; })(),
     finance:{ wk_low:fc.low, wk_high:fc.high,
       rows:[{label:fc.label, sub:fc.sub, wk3:fc.wk3, wk5:fc.wk5, wk7:fc.wk7}],
@@ -2551,6 +2596,9 @@ function buildJobData(clientName){
     project_run:{ lead:val('pr_lead'), steps:S.steps.filter(s=>s.title),
       payment_schedule:S.paymentSchedule.filter(p=>p.label).map(function(p){ return {pct:Number(p.pct)||0,label:p.label}; }) }
   };
+  if(S.include.concept && S.concept && S.concept.image){
+    data.concept = {image_data:S.concept.image, caption:S.concept.caption||''};
+  }
   if(S.mode==='range'){
     data.range = {
       options: S.options.filter(o=>effLabel(o)||o.size_label).map(function(o){
@@ -2636,6 +2684,37 @@ async function generatePdf(){
     statusEl.className='status-line err'; statusEl.textContent='PDF failed: '+e.message;
   }
   btn.disabled=false;
+}
+
+// ---------------- concept page (preset layout, per-job uploaded image) ----------------
+function conceptPicked(input){
+  const f=input.files && input.files[0]; if(!f) return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    // compress to keep the render request well under the ~4.5MB body limit
+    const img=new Image();
+    img.onload=function(){
+      const maxW=1800, sc=Math.min(1, maxW/img.width);
+      const cv=document.createElement('canvas');
+      cv.width=Math.round(img.width*sc); cv.height=Math.round(img.height*sc);
+      cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+      S.concept.image=cv.toDataURL('image/jpeg',0.88);
+      renderConcept(); refresh();
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(f);
+  input.value='';
+}
+function renderConcept(){
+  const cb=document.getElementById('inc_concept'); if(cb) cb.checked=!!S.include.concept;
+  const wrap=document.getElementById('conceptWrap'); if(wrap) wrap.classList.toggle('hidden', !S.include.concept);
+  const th=document.getElementById('conceptThumb');
+  if(th) th.innerHTML = S.concept.image
+    ? '<img src="'+S.concept.image+'" style="height:40px;border-radius:4px;border:1px solid var(--rule);vertical-align:middle;"> uploaded <button class="rm-btn" onclick="S.concept.image=null; renderConcept(); refresh();">✕</button>'
+    : 'No image yet — the page won’t render without one.';
+  const cap=document.getElementById('concept_caption');
+  if(cap && document.activeElement!==cap) cap.value=S.concept.caption||'';
 }
 
 // ---------------- site sketch (vector ops so drafts stay editable) ----------------
@@ -2904,6 +2983,7 @@ if(restored){
 })();
 setMode(S.manualOnly ? 'manual' : S.mode);
 initSketch();
+renderConcept();
 syncFinanceInputs();
 refresh();
 loadHostedRates();

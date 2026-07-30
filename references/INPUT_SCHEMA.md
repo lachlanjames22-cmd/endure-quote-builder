@@ -47,6 +47,11 @@ Both share: Cover, Approach, Finance (HandyPay), Project Run. They diverge on Co
 Optional top-level object controlling which fixed pages render. Any key omitted defaults to true.
 `{"approach": bool, "finance": bool, "project_run": bool}` — e.g. `"include": {"finance": false}` drops the HandyPay page AND the "Refer me to HandyPay" tick-box from the Quote approval page. Cover, Your Project/Options, Cost Breakdown and Approval always render.
 
+Exception: `"concept"` defaults to FALSE and also needs data — `"include": {"concept": true}` plus a top-level `"concept": {"image_data": "data:image/jpeg;base64,...", "caption": "..."}` renders the optional "This is your project." concept-plan page between About Endure and the project pages (both modes). The image is a data URI (the builder compresses uploads to ≤1800px JPEG); `caption` and `lead` are optional; `titles.concept` overrides the headline.
+
+## Fixed-cost separation — `cost_lines[].group`
+In `fixed` mode, cost lines with `"group": "fixed"` (the builder tags per-job fixed costs and the small-job loading this way) render below a small black "FIXED COSTS" subhead in the Cost Breakdown, visually separated from the project items. Lines without the key render exactly as before.
+
 ## Editable section headlines — `d["titles"]`
 
 Optional map overriding the big section titles per job. Keys: `approach`, `your_project`, `finance`, `approval`, `project_run`. Omitted keys keep the default mustard-accented headline. Override renders as plain text, e.g. `"titles": {"approval": "Let's build it."}`.
