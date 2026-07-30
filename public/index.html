@@ -222,9 +222,19 @@ text-transform:uppercase;color:var(--grey);padding:2.2mm 5mm;font-weight:500;}
 #pvRoot .cb2-head{display:grid;grid-template-columns:1fr 30mm;background:var(--dark);color:var(--white);padding:3mm 6mm;font-size:10pt;}
 #pvRoot .cb2-head>div:last-child{text-align:right;font-size:8pt;letter-spacing:.15em;}
 #pvRoot .cb2-subhead{padding:3.5mm 6mm 1mm;font-size:8pt;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--ink);border-top:1.5px solid var(--ink);margin-top:1.5mm;}
-#pvRoot .concept-wrap{margin-top:4mm;border:1px solid var(--rule);background:var(--cream);padding:4mm;text-align:center;}
-#pvRoot .concept-wrap img{max-width:100%;max-height:170mm;object-fit:contain;}
-#pvRoot .concept-cap{font-size:9pt;color:var(--grey);margin-top:2.5mm;font-style:italic;}
+#pvRoot .concept-grid{margin-top:4mm;display:grid;gap:4mm;}
+#pvRoot .concept-grid.l1{grid-template-columns:1fr;}
+#pvRoot .concept-grid.l2{grid-template-columns:1fr;}
+#pvRoot .concept-grid.l4{grid-template-columns:1fr 1fr;}
+#pvRoot .concept-cell{border:1px solid var(--rule);background:var(--cream);padding:3mm;text-align:center;}
+#pvRoot .concept-grid.l1 .concept-cell img{max-width:100%;max-height:168mm;object-fit:contain;}
+#pvRoot .concept-grid.l2 .concept-cell img{max-width:100%;max-height:78mm;object-fit:contain;}
+#pvRoot .concept-grid.l4 .concept-cell img{max-width:100%;max-height:74mm;object-fit:contain;}
+#pvRoot .concept-grid.tall .concept-cell img{max-height:none;}
+#pvRoot .concept-grid.tall.l1 .concept-cell img{max-height:180mm;}
+#pvRoot .concept-grid.tall.l2 .concept-cell img{max-height:84mm;}
+#pvRoot .concept-grid.tall.l4 .concept-cell img{max-height:80mm;}
+#pvRoot .concept-cap{font-size:9pt;color:var(--grey);margin-top:2mm;font-style:italic;}
 #pvRoot .cb2-line{display:grid;grid-template-columns:1fr 30mm;padding:3mm 6mm;border-bottom:1px solid var(--rule);font-size:10pt;}
 #pvRoot .cb2-line .desc{color:var(--grey);font-size:8.5pt;margin-top:0.5mm;}
 #pvRoot .cb2-line .amount{text-align:right;}
@@ -367,13 +377,8 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
         <label for="inc_concept" style="margin:0;">Include "Your Concept" page (concept plan / render)</label>
       </div>
       <div id="conceptWrap" class="hidden" style="grid-column:1/3;background:var(--cream);border:1px solid var(--rule);border-radius:6px;padding:10px;">
-        <span class="hint">Preset "This is your project" page after About Endure, before the project pages. Upload the concept plan or render for this job (image files — a PDF plan needs a screenshot first). Re-upload after a page reload — images don't persist in drafts.</span>
-        <div style="display:flex;gap:10px;align-items:center;margin-top:6px;">
-          <label class="sk-btn" style="cursor:pointer;">🖼 Upload concept image<input type="file" accept="image/*" style="display:none" onchange="conceptPicked(this)"></label>
-          <span id="conceptThumb" style="font-size:11.5px;color:var(--grey);"></span>
-        </div>
-        <div class="field" style="margin-top:8px;"><label>Caption (optional)</label>
-          <input type="text" id="concept_caption" placeholder="Concept plan — rear alfresco deck, v2" oninput="S.concept.caption=this.value; refresh();"></div>
+        <span class="hint">Preset "This is your project" pages after About Endure, before the project pages. Add as many pages as the job needs; each page holds a single image, a 2-grid or a 4-grid (plan, renders, mood board…). Image files only — a PDF plan needs a screenshot first. Re-upload after a page reload — images don't persist in drafts.</span>
+        <div id="conceptList" style="margin-top:6px;"></div>
       </div>
       <div style="grid-column:1/3;"><details class="rates"><summary>Section headlines (optional overrides)</summary>
         <p class="desc" style="margin-top:8px;">Blank = the standard headline. Type to replace the big title on that page for this job only.</p>
@@ -558,6 +563,41 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
         </div>
       </details>
     </div>
+
+    <div class="card" id="recipeCard">
+      <h2>Recipe builder — build an item from its ingredients</h2>
+      <p class="desc">Name the recipe, add <strong>materials by item</strong> and <strong>labour by task</strong>, set margin as a % of sell or a $/day rate. It lands on the quote and project page as <strong>one line at the sell price</strong> — the client never sees this breakdown. The ingredients flow straight into the internal job costing, and the library keeps recipes for the next job.</p>
+      <div id="recBanner" style="display:none;background:var(--cream);border-left:3px solid var(--mustard-deep);padding:6px 12px;font-size:12px;margin-bottom:8px;"></div>
+      <div class="grid3">
+        <div class="field"><label>Recipe name</label><input type="text" id="rec_name" placeholder="Custom deck" oninput="S.rec.name=this.value"></div>
+        <div class="field"><label>Photo on the project page</label><span id="rec_img_wrap"></span>
+          <input type="text" id="rec_img_custom" class="custom-inp hidden" placeholder="Image filename" oninput="S.rec.imgCustom=this.value"></div>
+        <div class="field"><label>Library</label><span class="hint">Load a saved recipe as a starting point</span>
+          <select id="rec_lib" onchange="loadRecipeFromLib(this.value)"></select></div>
+      </div>
+      <label style="margin-top:6px;">Materials — by item</label>
+      <table class="rep"><thead><tr><th style="width:42%">Item</th><th style="width:13%">Qty</th><th style="width:17%">Unit $ (our cost)</th><th style="width:16%">Line $</th><th></th></tr></thead>
+        <tbody id="recMatsBody"></tbody></table>
+      <button class="add-btn" onclick="addRecMat()">+ Add material</button>
+      <label style="margin-top:10px;">Labour — by task</label>
+      <table class="rep"><thead><tr><th style="width:42%">Task</th><th style="width:13%">Days</th><th style="width:17%">Rate $/day</th><th style="width:16%">Line $</th><th></th></tr></thead>
+        <tbody id="recLabsBody"></tbody></table>
+      <button class="add-btn" onclick="addRecLab()">+ Add labour</button>
+      <div class="field" style="margin-top:10px;"><label>Margin</label>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <label class="check-row" style="font-weight:400;"><input type="radio" name="recMarginMode" id="rec_mm_pct" onchange="S.rec.marginMode='pct'; renderRecTotals();"> % of sell</label>
+          <input type="number" id="rec_mpct" style="max-width:80px;" oninput="S.rec.marginPct=this.value; renderRecTotals();">
+          <label class="check-row" style="font-weight:400;"><input type="radio" name="recMarginMode" id="rec_mm_day" onchange="S.rec.marginMode='day'; renderRecTotals();"> $/day × labour days</label>
+          <input type="number" id="rec_mday" style="max-width:100px;" oninput="S.rec.marginDay=this.value; renderRecTotals();">
+        </div></div>
+      <div class="totals-strip" id="recTotals" style="margin-top:8px;"></div>
+      <div style="display:flex;gap:10px;align-items:center;margin-top:10px;border-top:1px solid var(--rule);padding-top:10px;flex-wrap:wrap;">
+        <button class="add-btn" id="recSaveBtn" style="margin-top:0;background:var(--mustard-deep);color:#fff;font-size:13px;padding:9px 18px;" onclick="saveRecipe()">✓ Save recipe → quote &amp; project page</button>
+        <button class="add-btn" style="margin-top:0;" onclick="saveRecipeToLib()">⭳ Save to library</button>
+        <button class="reset-btn" id="recCancelBtn" style="display:none;" onclick="cancelRecipeEdit()">cancel edit</button>
+      </div>
+    </div>
+
 
     <div class="card">
       <h2>&#9313; Job costs — apply to the whole job</h2>
@@ -924,11 +964,12 @@ function defaultState(){
     costLines: [],
     ex: {type:'Stairs', custom:'', qty:'', rateOv:null, costOv:null, labour:'', margin:''},
     ed: {extras:[], editingName:null, origBoard:null},
+    rec:null, recipeLib:[],
     calcTab:'deck',
     bundles: [],
     icAuto: true,
     include: {approach:true, finance:true, project_run:true, concept:false},
-    concept: {image:null, caption:''},
+    concept: {pages:[]},
     zones: [],
     finance: {amount:null, amountOv:false, apr:9.99, wk3Ov:null, wk5Ov:null, wk7Ov:null, lowOv:null, highOv:null, label:''},
     steps: [
@@ -1082,7 +1123,7 @@ function ensureBundle(name, opts){
   return b;
 }
 function pruneBundles(){
-  S.bundles = S.bundles.filter(function(b){ return linesIn(b.name).length>0 || b.price_ov || b.custom; });
+  S.bundles = S.bundles.filter(function(b){ return linesIn(b.name).length>0 || b.price_ov || b.custom || b.recipe; });
 }
 function bundleOptions(sel){
   const names = S.bundles.map(function(b){return b.name;});
@@ -1631,8 +1672,184 @@ function addCustomHero(){
   if(st){ st.className='status-line ok'; st.textContent='"'+name+'" added to the project page — set its photo, price and description below.'; }
 }
 
+// ---------------- recipe builder ----------------
+// A recipe = a named item built from ingredients: materials by item, labour by
+// task, margin as % of sell or $/day × labour days. Saving creates a bundle
+// (hero on the project page) with ONE cost line at the roll-up — the client
+// only ever sees the sell price. The ingredient detail is kept on the bundle
+// (b.recipe) and flows verbatim into the internal costing auto-fill.
+function blankRecipe(){
+  const rc = (typeof S!=='undefined' && S && S.rc) ? S.rc : RATECARD;
+  return {name:'', imgSel:'', imgCustom:'',
+    mats:[{item:'',qty:'',unit:''}],
+    labs:[{task:'',days:'',rate:(Number(rc.labour_day)||960)}],
+    marginMode:'pct', marginPct:(Number(rc.margin_pct_default)||35),
+    marginDay:(Number(rc.gp_target)||2000), editing:null};
+}
+function ensureRec(){ if(!S.rec) S.rec=blankRecipe(); if(!Array.isArray(S.recipeLib)) S.recipeLib=[]; }
+// Qty defaults to 1 when blank, so a lump-sum material (unit cost only) still
+// counts. Never let a row's dollars count in the quote but not the budget.
+function recMatLine(m){ return (Number(m.qty)||1)*(Number(m.unit)||0); }
+function recMatTotal(){ ensureRec(); return S.rec.mats.reduce(function(a,m){return a+recMatLine(m);},0); }
+function recLabTotal(){ ensureRec(); return S.rec.labs.reduce(function(a,l){return a+(Number(l.days)||0)*(Number(l.rate)||0);},0); }
+function recDays(){ ensureRec(); return S.rec.labs.reduce(function(a,l){return a+(Number(l.days)||0);},0); }
+function recMargin(){
+  ensureRec();
+  if(S.rec.marginMode==='day') return Math.round(recDays()*(Number(S.rec.marginDay)||0));
+  const p = Number(S.rec.marginPct)||0;
+  const cost = recMatTotal()+recLabTotal();
+  return (p>0&&p<95)?Math.round(cost*p/(100-p)):0;
+}
+// Keep any row that carries dollars, even if Matt skipped the name — default
+// the name instead of silently dropping the row from the recipe/budget.
+function recCleanMats(){
+  return S.rec.mats.filter(function(m){ return m.item || Number(m.unit); })
+    .map(function(m){ return {item:(m.item||'Materials'), qty:m.qty, unit:m.unit}; });
+}
+function recCleanLabs(){
+  return S.rec.labs.filter(function(l){ return l.task || Number(l.days); })
+    .map(function(l){ return {task:(l.task||'Labour'), days:l.days, rate:l.rate}; });
+}
+function addRecMat(){ ensureRec(); S.rec.mats.push({item:'',qty:'',unit:''}); renderRecipe(); }
+function addRecLab(){ ensureRec(); S.rec.labs.push({task:'',days:'',rate:(Number(S.rc.labour_day)||960)}); renderRecipe(); }
+function recEditMat(i,k,v){
+  S.rec.mats[i][k]=v;
+  const el=document.getElementById('rec_m_'+i);
+  if(el) el.textContent=fmt$(recMatLine(S.rec.mats[i]));
+  renderRecTotals();
+}
+function recEditLab(i,k,v){
+  S.rec.labs[i][k]=v;
+  const el=document.getElementById('rec_l_'+i);
+  if(el) el.textContent=fmt$((Number(S.rec.labs[i].days)||0)*(Number(S.rec.labs[i].rate)||0));
+  renderRecTotals();
+}
+function renderRecTotals(){
+  const el=document.getElementById('recTotals'); if(!el) return;
+  ensureRec();
+  const mat=recMatTotal(), lab=recLabTotal(), mg=recMargin(), sellEx=mat+lab+mg;
+  const basis = S.rec.marginMode==='day' ? (recDays()+'d × '+fmt$(Number(S.rec.marginDay)||0)) : ((Number(S.rec.marginPct)||0)+'% of sell');
+  el.innerHTML = '<div><div class="t-lab">Materials</div><div class="t-val">'+fmt$(mat)+'</div></div>'
+    +'<div><div class="t-lab">Labour</div><div class="t-val">'+fmt$(lab)+' <span style="font-size:10px;color:var(--grey);">'+recDays()+'d</span></div></div>'
+    +'<div><div class="t-lab">Margin</div><div class="t-val">'+fmt$(mg)+' <span style="font-size:10px;color:var(--grey);">'+basis+'</span></div></div>'
+    +'<div><div class="t-lab">Sell inc GST — the only number the client sees</div><div class="t-val big">'+fmt$(Math.round(sellEx*1.1))+'</div></div>';
+}
+function renderRecipeImgToggle(){
+  const inp=document.getElementById('rec_img_custom');
+  if(inp) inp.classList.toggle('hidden', S.rec.imgSel!==CUSTOM);
+}
+function syncRecipeInputs(){
+  ensureRec();
+  setVal('rec_name', S.rec.name);
+  setVal('rec_mpct', S.rec.marginPct); setVal('rec_mday', S.rec.marginDay);
+  setVal('rec_img_custom', S.rec.imgCustom);
+  const w=document.getElementById('rec_img_wrap');
+  if(w) w.innerHTML = materialSelect(S.rec.imgSel, "S.rec.imgSel=this.value; renderRecipeImgToggle();");
+  renderRecipeImgToggle();
+  const rp=document.getElementById('rec_mm_pct'), rd=document.getElementById('rec_mm_day');
+  if(rp) rp.checked = S.rec.marginMode!=='day';
+  if(rd) rd.checked = S.rec.marginMode==='day';
+  const bn=document.getElementById('recBanner');
+  if(bn){ bn.style.display = S.rec.editing?'block':'none'; if(S.rec.editing) bn.textContent='Editing "'+S.rec.editing+'" — Save updates it in place.'; }
+  const cb=document.getElementById('recCancelBtn'); if(cb) cb.style.display = S.rec.editing?'inline':'none';
+}
+function renderRecipe(){
+  const mb=document.getElementById('recMatsBody'); if(!mb) return;
+  ensureRec();
+  mb.innerHTML = S.rec.mats.map(function(m,i){
+    return `<tr>
+      <td><input type="text" value="${escA(m.item)}" oninput="recEditMat(${i},'item',this.value)" placeholder="e.g. H4 bearers 90×90"></td>
+      <td><input type="number" value="${escA(m.qty)}" oninput="recEditMat(${i},'qty',this.value)"></td>
+      <td><input type="number" value="${escA(m.unit)}" oninput="recEditMat(${i},'unit',this.value)"></td>
+      <td style="padding-top:9px;" id="rec_m_${i}">${fmt$(recMatLine(m))}</td>
+      <td><button class="rm-btn" onclick="S.rec.mats.splice(${i},1); if(!S.rec.mats.length) S.rec.mats.push({item:'',qty:'',unit:''}); renderRecipe();">✕</button></td>
+    </tr>`; }).join('');
+  document.getElementById('recLabsBody').innerHTML = S.rec.labs.map(function(l,i){
+    return `<tr>
+      <td><input type="text" value="${escA(l.task)}" oninput="recEditLab(${i},'task',this.value)" placeholder="e.g. Subframe install"></td>
+      <td><input type="number" step="0.5" value="${escA(l.days)}" oninput="recEditLab(${i},'days',this.value)"></td>
+      <td><input type="number" value="${escA(l.rate)}" oninput="recEditLab(${i},'rate',this.value)"></td>
+      <td style="padding-top:9px;" id="rec_l_${i}">${fmt$((Number(l.days)||0)*(Number(l.rate)||0))}</td>
+      <td><button class="rm-btn" onclick="S.rec.labs.splice(${i},1); if(!S.rec.labs.length) S.rec.labs.push({task:'',days:'',rate:Number(S.rc.labour_day)||960}); renderRecipe();">✕</button></td>
+    </tr>`; }).join('');
+  syncRecipeInputs();
+  renderRecTotals();
+}
+function renderRecipeLib(){
+  const el=document.getElementById('rec_lib'); if(!el) return;
+  ensureRec();
+  el.innerHTML = '<option value="">— library ('+S.recipeLib.length+') —</option>'
+    + S.recipeLib.map(function(r){ return '<option value="'+escA(r.name)+'">'+esc(r.name)+'</option>'; }).join('');
+}
+function loadRecipeFromLib(name){
+  if(!name) return;
+  const r = S.recipeLib.find(function(x){return x.name===name;});
+  if(!r) return;
+  S.rec = Object.assign(blankRecipe(), JSON.parse(JSON.stringify(r)), {editing:null});
+  if(!S.rec.mats.length) S.rec.mats=[{item:'',qty:'',unit:''}];
+  if(!S.rec.labs.length) S.rec.labs=[{task:'',days:'',rate:Number(S.rc.labour_day)||960}];
+  renderRecipe(); renderRecipeLib();
+  const st=document.getElementById('statusLine');
+  if(st){ st.className='status-line ok'; st.textContent='"'+name+'" loaded from the library — adjust quantities for this job, then Save.'; }
+}
+function saveRecipeToLib(){
+  ensureRec();
+  S.rec.name = (val('rec_name')||'').trim();
+  if(!S.rec.name){ notify('Name the recipe first — e.g. "Custom deck".'); return; }
+  const entry = {name:S.rec.name, imgSel:S.rec.imgSel, imgCustom:S.rec.imgCustom,
+    mats:recCleanMats(), labs:recCleanLabs(),
+    marginMode:S.rec.marginMode, marginPct:S.rec.marginPct, marginDay:S.rec.marginDay};
+  const i = S.recipeLib.findIndex(function(r){return r.name===entry.name;});
+  if(i>=0) S.recipeLib[i]=entry; else S.recipeLib.push(entry);
+  renderRecipeLib();
+  const st=document.getElementById('statusLine');
+  if(st){ st.className='status-line ok'; st.textContent='"'+entry.name+'" saved to the library — it survives New job and exports with the setup file.'; }
+}
+function saveRecipe(){
+  ensureRec();
+  S.rec.name = (val('rec_name')||'').trim();
+  const name = S.rec.name;
+  if(!name){ notify('Name the recipe first — e.g. "Custom deck".'); return; }
+  if(recMatTotal()+recLabTotal()<=0){ notify('Add at least one material or labour line first.'); return; }
+  const editing = S.rec.editing;
+  const renaming = editing && editing!==name;
+  if(!editing && bundleByName(name)){ notify('A package called "'+name+'" already exists — use "✎ edit recipe" on its project card, or pick another name.'); return; }
+  if(renaming && bundleByName(name)){ notify('A package called "'+name+'" already exists.'); return; }
+  const old = editing || name;
+  S.costLines = S.costLines.filter(function(c){ return (c.bundle||'')!==old; });
+  let b = bundleByName(old);
+  if(b){ if(renaming) b.name=name; }
+  else { b = ensureBundle(name, {isHero:true, inCost:true}); }
+  b.imgSel = S.rec.imgSel; b.imgCustom = S.rec.imgCustom;
+  b.recipe = {mats:recCleanMats(), labs:recCleanLabs(),
+    marginMode:S.rec.marginMode, marginPct:S.rec.marginPct, marginDay:S.rec.marginDay, days:recDays()};
+  const mg = recMargin();
+  S.costLines.push({label:name, desc:'Supply & install', cost:Math.round(recMatTotal()),
+    labour:Math.round(recLabTotal()), margin:mg, bundle:name, sel:false});
+  const sellInc = Math.round((recMatTotal()+recLabTotal()+mg)*1.1);
+  const st=document.getElementById('statusLine');
+  if(st){ st.className='status-line ok';
+    st.textContent=(editing?'Updated ':'Saved ')+name+' — one line on the quote at '+fmt$(sellInc)+' inc GST. The client sees that number only; the ingredients are in the internal costing.'; }
+  S.rec = blankRecipe();
+  renderRecipe(); renderRecipeLib(); renderBundles(); renderCostLines(); refresh();
+}
+function editRecipe(i){
+  const b = S.bundles[i];
+  if(!b || !b.recipe) return;
+  S.rec = Object.assign(blankRecipe(), {name:b.name, imgSel:b.imgSel||'', imgCustom:b.imgCustom||'',
+    mats:JSON.parse(JSON.stringify(b.recipe.mats||[])), labs:JSON.parse(JSON.stringify(b.recipe.labs||[])),
+    marginMode:b.recipe.marginMode||'pct', marginPct:b.recipe.marginPct, marginDay:b.recipe.marginDay,
+    editing:b.name});
+  if(!S.rec.mats.length) S.rec.mats=[{item:'',qty:'',unit:''}];
+  if(!S.rec.labs.length) S.rec.labs=[{task:'',days:'',rate:Number(S.rc.labour_day)||960}];
+  renderRecipe();
+  const card=document.getElementById('recipeCard'); if(card) card.scrollIntoView({behavior:'smooth', block:'start'});
+}
+function cancelRecipeEdit(){ S.rec = blankRecipe(); renderRecipe(); }
+
+
 function exportSetup(){
-  const setup = {endure_setup_version:1, exported:new Date().toISOString(), rc:S.rc, materials:MATERIALS};
+  const setup = {endure_setup_version:1, exported:new Date().toISOString(), rc:S.rc, materials:MATERIALS, recipes:S.recipeLib||[]};
   const txt = JSON.stringify(setup, null, 2);
   try{
     const blob = new Blob([txt], {type:'application/json'});
@@ -1653,7 +1870,8 @@ function importSetup(){
     const s = JSON.parse(raw);
     if(!s.rc) throw new Error('not an Endure setup file');
     S.rc = s.rc;
-    renderRates(); renderQC(); refresh();
+    if(Array.isArray(s.recipes)) S.recipeLib = s.recipes;
+    renderRates(); renderQC(); renderRecipeLib(); refresh();
     document.getElementById('setup_import').classList.add('hidden');
     document.getElementById('statusLine').className='status-line ok';
     document.getElementById('statusLine').textContent='Setup imported — your rates are now loaded. Quote away.';
@@ -1700,6 +1918,10 @@ function renderBundles(){
         <span>${escA(b.params.area)}m² · ${escA((b.params.subframe||'').split(' (')[0])} · ${escA(b.params.board===CUSTOM?(b.params.boardCustom||'custom'):b.params.board)}${(b.params.mults||[]).length?' · '+b.params.mults.join(', '):''}</span>
         <button class="reset-btn" onclick="editPackage(${i})">✎ edit in calculator</button>
         <button class="reset-btn" onclick="duplicatePackage(${i})">⧉ duplicate</button>
+      </div>`:''}
+      ${b.recipe?`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px;font-size:11.5px;color:var(--grey);">
+        <span>Recipe · ${(b.recipe.mats||[]).length} material${(b.recipe.mats||[]).length===1?'':'s'} · ${(b.recipe.labs||[]).length} labour task${(b.recipe.labs||[]).length===1?'':'s'} · ${escA(b.recipe.days||0)}d</span>
+        <button class="reset-btn" onclick="editRecipe(${i})">✎ edit recipe</button>
       </div>`:''}
       ${b.isHero?`<div class="grid3" style="margin-top:8px;">
         <div class="field" style="margin:0;"><label>Photo</label>${materialSelect(b.imgSel, "S.bundles["+i+"].imgSel=this.value; renderBundles(); refresh();")}
@@ -1948,12 +2170,17 @@ function pvYourProject(n){
     <div class="yp-note">Built to the Endure 20-Year Standard. ${esc(val('fx_footnote'))}</div>
   ${pvFoot(n)}</div></div>`;
 }
-function pvConcept(n){
-  const cap = S.concept.caption ? '<div class="concept-cap">'+esc(S.concept.caption)+'</div>' : '';
+function pvConcept(n, page, first){
+  const L = Number(page.layout)||1;
+  const cells = page.images.map(function(c){
+    const cap = c.caption ? '<div class="concept-cap">'+esc(c.caption)+'</div>' : '';
+    return '<div class="concept-cell"><img src="'+c.image+'">'+cap+'</div>';
+  }).join('');
+  const lead = first ? '<p class="lead">The concept drawn for your space — the design the numbers in this document are built around.</p>' : '';
   return `<div class="page">${pvHead('Concept · '+String(n).padStart(2,'0'))}<div class="pbody">
     <div class="eyebrow">Your Concept</div><div class="title">${effTitle('concept','This is your <span class="mustard">project.</span>')}</div>
-    <p class="lead">The concept drawn for your space — the design the numbers in this document are built around.</p>
-    <div class="concept-wrap"><img src="${S.concept.image}">${cap}</div>
+    ${lead}
+    <div class="concept-grid l${L}${first?'':' tall'}">${cells}</div>
   ${pvFoot(n)}</div></div>`;
 }
 function pvCostFixed(n){
@@ -2133,6 +2360,14 @@ function autoFillInternal(){
       return;
     }
     const stream = (c.bundle||'Standalone');
+    const rb = bundleByName(c.bundle||'');
+    if(rb && rb.recipe && c.label===rb.name){
+      // Recipe line: push the real ingredients, not a generic roll-up.
+      // Defensive defaults so a nameless row can never vanish from the budget.
+      (rb.recipe.mats||[]).forEach(function(m){ mats.push({item:m.item||'Materials', supplier:'', stream:stream, qty:Number(m.qty)||1, unit:Number(m.unit)||0}); });
+      (rb.recipe.labs||[]).forEach(function(l){ labs.push({task:l.task||'Labour', stream:stream, days:Number(l.days)||0, rate:Number(l.rate)||0}); });
+      return;
+    }
     if(Number(c.costSub) || Number(c.costBoard)){
       if(Number(c.costSub)) mats.push({item:'Subframe — materials', supplier:'', stream:stream, qty:1, unit:Number(c.costSub)});
       if(Number(c.costBoard)) mats.push({item:'Boards — materials', supplier:'', stream:stream, qty:1, unit:Number(c.costBoard)});
@@ -2326,7 +2561,11 @@ function buildPages(){
   let n=1;
   pages.push(['cover', pvCover()]); n++;
   if(S.include.approach){ pages.push(['approach', pvApproach(n)]); n++; }
-  if(S.include.concept && S.concept.image){ pages.push(['concept', pvConcept(n)]); n++; }
+  if(S.include.concept){
+    conceptPages().filter(function(p){return (p.images||[]).length;}).forEach(function(p,i){
+      pages.push(['concept', pvConcept(n, p, i===0)]); n++;
+    });
+  }
   if(S.mode==='fixed'){
     pages.push(['project', pvYourProject(n)]); n++;
     pages.push(['cost', pvCostFixed(n)]); n++;
@@ -2465,7 +2704,7 @@ function autosave(){
     const copy = JSON.parse(JSON.stringify(S));
     copy.ic.attachments = [];  // dataURLs would blow the localStorage quota
     if(copy.sketch) copy.sketch = {ops:copy.sketch.ops||[], bg:null, grid:copy.sketch.grid!==false};  // vector ops persist, photo underlay doesn't
-    if(copy.concept) copy.concept = {caption:copy.concept.caption||'', image:null};  // concept image too big for drafts
+    if(copy.concept) copy.concept = {pages:[]};  // concept images too big for drafts
     LSTORE.setItem('endureBuilderDraft', JSON.stringify(copy));
   }catch(e){}
 }
@@ -2488,7 +2727,10 @@ function restore(){
     if(!Array.isArray(S.bundles)) S.bundles = [];
     if(!Array.isArray(S.costLines)) S.costLines = [];
     S.include = Object.assign({approach:true, finance:true, project_run:true, concept:false}, saved.include||{});
-    S.concept = Object.assign({image:null, caption:''}, saved.concept||{});
+    S.concept = Object.assign({pages:[]}, saved.concept||{});
+    if(!Array.isArray(S.recipeLib)) S.recipeLib = [];
+    S.rec = saved.rec ? Object.assign(blankRecipe(), saved.rec) : null;
+    if(!Array.isArray(S.concept.pages)) S.concept.pages=[];
     if(!Array.isArray(S.fixedCosts) || !S.fixedCosts.length) S.fixedCosts = def.fixedCosts;
     const savedRc = saved.rc||{};
     if((savedRc.rates_version||1) < RATECARD.rates_version){
@@ -2514,8 +2756,9 @@ function resetForm(){
   }
   _resetArmed = null;
   const keepRc = JSON.parse(JSON.stringify(S.rc));
+  const keepLib = JSON.parse(JSON.stringify(S.recipeLib||[]));
   LSTORE.removeItem('endureBuilderDraft');
-  S = defaultState(); S.rc=keepRc;
+  S = defaultState(); S.rc=keepRc; S.recipeLib=keepLib;
   FIELD_IDS.forEach(function(id){ setVal(id,''); });
   setVal('fx_deposit_pct',5); setVal('consult_fee_paid',0);
   setVal('proposal_date', new Date().toISOString().slice(0,10));
@@ -2588,7 +2831,7 @@ function buildJobData(clientName){
     cover_subtitle:val('cover_subtitle'), prepared_for:effPreparedFor(), location:val('location'),
     proposal_date:effDate()||val('proposal_date'), status_label:effStatus(), eyebrow_tag:effEyebrow(),
     include:{approach:!!S.include.approach, finance:!!S.include.finance, project_run:!!S.include.project_run,
-      concept:!!(S.include.concept && S.concept && S.concept.image)},
+      concept:!!(S.include.concept && conceptPages().some(function(p){return (p.images||[]).length;}))},
     titles:(function(){ const t={}; ['approach','your_project','finance','approval','project_run'].forEach(function(k){ if(val('t_'+k)) t[k]=val('t_'+k); }); return Object.keys(t).length?t:undefined; })(),
     finance:{ wk_low:fc.low, wk_high:fc.high,
       rows:[{label:fc.label, sub:fc.sub, wk3:fc.wk3, wk5:fc.wk5, wk7:fc.wk7}],
@@ -2596,8 +2839,12 @@ function buildJobData(clientName){
     project_run:{ lead:val('pr_lead'), steps:S.steps.filter(s=>s.title),
       payment_schedule:S.paymentSchedule.filter(p=>p.label).map(function(p){ return {pct:Number(p.pct)||0,label:p.label}; }) }
   };
-  if(S.include.concept && S.concept && S.concept.image){
-    data.concept = {image_data:S.concept.image, caption:S.concept.caption||''};
+  const cpPages = conceptPages().filter(function(p){return (p.images||[]).length;});
+  if(S.include.concept && cpPages.length){
+    data.concept = {pages: cpPages.map(function(p){
+      return {layout:Number(p.layout)||1,
+              images:p.images.map(function(c){return {image_data:c.image, caption:c.caption||''};})};
+    })};
   }
   if(S.mode==='range'){
     data.range = {
@@ -2686,35 +2933,69 @@ async function generatePdf(){
   btn.disabled=false;
 }
 
-// ---------------- concept page (preset layout, per-job uploaded image) ----------------
-function conceptPicked(input){
-  const f=input.files && input.files[0]; if(!f) return;
-  const reader=new FileReader();
-  reader.onload=function(e){
-    // compress to keep the render request well under the ~4.5MB body limit
-    const img=new Image();
-    img.onload=function(){
-      const maxW=1800, sc=Math.min(1, maxW/img.width);
-      const cv=document.createElement('canvas');
-      cv.width=Math.round(img.width*sc); cv.height=Math.round(img.height*sc);
-      cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
-      S.concept.image=cv.toDataURL('image/jpeg',0.88);
-      renderConcept(); refresh();
+// ---------------- concept pages (one document page each: single / 2-grid / 4-grid) ----------------
+function conceptPages(){ if(!Array.isArray(S.concept.pages)) S.concept.pages=[]; return S.concept.pages; }
+function conceptAddPage(){ conceptPages().push({layout:1, images:[]}); renderConcept(); refresh(); }
+function conceptPicked(input, pi){
+  const page=conceptPages()[pi]; if(!page) return;
+  Array.from(input.files||[]).forEach(function(f){
+    const reader=new FileReader();
+    reader.onload=function(e){
+      // compress each image to keep the render request well under the ~4.5MB body limit
+      const img=new Image();
+      img.onload=function(){
+        const maxW=1800, sc=Math.min(1, maxW/img.width);
+        const cv=document.createElement('canvas');
+        cv.width=Math.round(img.width*sc); cv.height=Math.round(img.height*sc);
+        cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+        if(page.images.length < Number(page.layout)) page.images.push({image:cv.toDataURL('image/jpeg',0.88), caption:''});
+        renderConcept(); refresh();
+      };
+      img.src=e.target.result;
     };
-    img.src=e.target.result;
-  };
-  reader.readAsDataURL(f);
+    reader.readAsDataURL(f);
+  });
   input.value='';
+}
+function conceptMovePage(i, dir){
+  const a=conceptPages(), j=i+dir;
+  if(j<0||j>=a.length) return;
+  const t=a[i]; a[i]=a[j]; a[j]=t;
+  renderConcept(); refresh();
+}
+function conceptSetLayout(pi, v){
+  const page=conceptPages()[pi]; if(!page) return;
+  page.layout=Number(v)||1;
+  if(page.images.length>page.layout) page.images.length=page.layout;
+  renderConcept(); refresh();
 }
 function renderConcept(){
   const cb=document.getElementById('inc_concept'); if(cb) cb.checked=!!S.include.concept;
   const wrap=document.getElementById('conceptWrap'); if(wrap) wrap.classList.toggle('hidden', !S.include.concept);
-  const th=document.getElementById('conceptThumb');
-  if(th) th.innerHTML = S.concept.image
-    ? '<img src="'+S.concept.image+'" style="height:40px;border-radius:4px;border:1px solid var(--rule);vertical-align:middle;"> uploaded <button class="rm-btn" onclick="S.concept.image=null; renderConcept(); refresh();">✕</button>'
-    : 'No image yet — the page won’t render without one.';
-  const cap=document.getElementById('concept_caption');
-  if(cap && document.activeElement!==cap) cap.value=S.concept.caption||'';
+  const el=document.getElementById('conceptList'); if(!el) return;
+  const pages=conceptPages();
+  el.innerHTML = pages.map(function(p,pi){
+    const imgs=(p.images||[]).map(function(c,ii){
+      return '<div style="display:flex;gap:8px;align-items:center;margin-top:5px;">'
+        +'<img src="'+c.image+'" style="height:40px;border-radius:4px;border:1px solid var(--rule);">'
+        +'<input type="text" value="'+escA(c.caption||'')+'" placeholder="Caption (optional)" style="flex:1;" oninput="conceptPages()['+pi+'].images['+ii+'].caption=this.value; refresh();">'
+        +'<button class="rm-btn" onclick="conceptPages()['+pi+'].images.splice('+ii+',1); renderConcept(); refresh();">✕</button></div>'; }).join('');
+    const room=(p.images||[]).length < Number(p.layout);
+    return '<div style="background:#fff;border:1px solid var(--rule);border-radius:5px;padding:8px;margin-bottom:8px;">'
+      +'<div style="display:flex;gap:8px;align-items:center;">'
+      +'<strong style="font-size:12px;">Concept page '+(pi+1)+'</strong>'
+      +'<select style="width:auto;" onchange="conceptSetLayout('+pi+', this.value)">'
+      +'<option value="1"'+(Number(p.layout)===1?' selected':'')+'>Single image</option>'
+      +'<option value="2"'+(Number(p.layout)===2?' selected':'')+'>2-grid</option>'
+      +'<option value="4"'+(Number(p.layout)===4?' selected':'')+'>4-grid</option></select>'
+      +(room?'<label class="sk-btn" style="cursor:pointer;">🖼 Add image<input type="file" accept="image/*" multiple style="display:none" onchange="conceptPicked(this,'+pi+')"></label>'
+            :'<span style="font-size:11px;color:var(--green);">● full</span>')
+      +'<span style="flex:1;"></span>'
+      +'<button class="rm-btn" onclick="conceptMovePage('+pi+',-1)" title="Move up">↑</button>'
+      +'<button class="rm-btn" onclick="conceptMovePage('+pi+',1)" title="Move down">↓</button>'
+      +'<button class="rm-btn" onclick="conceptPages().splice('+pi+',1); renderConcept(); refresh();">✕</button>'
+      +'</div>'+imgs+'</div>'; }).join('')
+    + '<button class="add-btn" onclick="conceptAddPage()">+ Add concept page</button>';
 }
 
 // ---------------- site sketch (vector ops so drafts stay editable) ----------------
@@ -2984,6 +3265,7 @@ if(restored){
 setMode(S.manualOnly ? 'manual' : S.mode);
 initSketch();
 renderConcept();
+renderRecipe(); renderRecipeLib();
 syncFinanceInputs();
 refresh();
 loadHostedRates();
