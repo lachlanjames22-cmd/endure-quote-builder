@@ -154,9 +154,18 @@ text-transform:uppercase;color:var(--grey);padding:2.2mm 5mm;font-weight:500;}
 .cb2-head>div:last-child{text-align:right;font-size:8pt;letter-spacing:.15em;}
 .cb2-subhead{padding:3.5mm 6mm 1mm;font-size:8pt;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--ink);border-top:1.5px solid var(--ink);margin-top:1.5mm;}
 .cb2-line{display:grid;grid-template-columns:1fr 30mm;padding:3mm 6mm;border-bottom:1px solid var(--rule);font-size:10pt;}
-.concept-wrap{margin-top:4mm;border:1px solid var(--rule);background:var(--cream);padding:4mm;text-align:center;}
-.concept-wrap img{max-width:100%;max-height:170mm;object-fit:contain;}
-.concept-cap{font-size:9pt;color:var(--grey);margin-top:2.5mm;font-style:italic;}
+.concept-grid{margin-top:4mm;display:grid;gap:4mm;}
+.concept-grid.l1{grid-template-columns:1fr;}
+.concept-grid.l2{grid-template-columns:1fr;}
+.concept-grid.l4{grid-template-columns:1fr 1fr;}
+.concept-cell{border:1px solid var(--rule);background:var(--cream);padding:3mm;text-align:center;}
+.concept-grid.l1 .concept-cell img{max-width:100%;max-height:168mm;object-fit:contain;}
+.concept-grid.l2 .concept-cell img{max-width:100%;max-height:78mm;object-fit:contain;}
+.concept-grid.l4 .concept-cell img{max-width:100%;max-height:74mm;object-fit:contain;}
+.concept-grid.tall.l1 .concept-cell img{max-height:180mm;}
+.concept-grid.tall.l2 .concept-cell img{max-height:84mm;}
+.concept-grid.tall.l4 .concept-cell img{max-height:80mm;}
+.concept-cap{font-size:9pt;color:var(--grey);margin-top:2mm;font-style:italic;}
 .cb2-line .desc{color:var(--grey);font-size:8.5pt;margin-top:0.5mm;}
 .cb2-line .amount{text-align:right;}
 .cb2-total{display:grid;grid-template-columns:1fr 50mm;background:var(--dark);color:var(--white);padding:4mm 6mm;align-items:center;}
@@ -534,18 +543,33 @@ def page_your_project(d, n, status_label):
   <div class="yp-zones">{zones}</div>
   <div class="yp-note">Built to the Endure 20-Year Standard. {fp.get("footnote","")}</div>
 {foot(n)}</div></div>'''
-def page_concept(d, n, status_label):
-    """Optional concept-plan page: preset layout, per-job uploaded image.
-    Renders only when include.concept is on and an image was uploaded."""
+def concept_pages_data(d):
+    """Normalised list of concept pages: new-style concept.pages (each with a
+    layout of 1/2/4 and its images), or a legacy single image_data as one page."""
     cp = d.get('concept') or {}
-    cap = f'<div class="concept-cap">{cp["caption"]}</div>' if cp.get('caption') else ''
-    lead = cp.get('lead') or ('The concept drawn for your space &mdash; the design the numbers in this '
-                              'document are built around.')
+    if cp.get('pages'):
+        return [p for p in cp['pages'] if p.get('images')]
+    if cp.get('image_data'):
+        return [{'layout': 1, 'images': [{'image_data': cp['image_data'], 'caption': cp.get('caption', '')}]}]
+    return []
+
+
+def page_concept(d, n, page, first):
+    """Optional concept-plan page: preset layout (single / 2-grid / 4-grid),
+    per-job uploaded images. One document page per entry in concept.pages."""
+    layout = int(page.get('layout') or 1)
+    cells = ''.join(
+        f'<div class="concept-cell"><img src="{img.get("image_data", "")}">'
+        + (f'<div class="concept-cap">{img["caption"]}</div>' if img.get('caption') else '')
+        + '</div>'
+        for img in page.get('images') or [])
+    lead = ('<p class="lead">The concept drawn for your space &mdash; the design the numbers in this '
+            'document are built around.</p>') if first else ''
     return f'''<div class="page">{head(f"Concept &middot; {n:02d}")}<div class="pbody">
   <div class="eyebrow">Your Concept</div>
   {title_html(d, "concept", 'This is your <span class="mustard">project.</span>')}
-  <p class="lead">{lead}</p>
-  <div class="concept-wrap"><img src="{cp.get("image_data", "")}">{cap}</div>
+  {lead}
+  <div class="concept-grid l{layout}{"" if first else " tall"}">{cells}</div>
 {foot(n)}</div></div>'''
 
 
@@ -634,8 +658,9 @@ def render(d, out_pdf):
     pages = [page_cover(d, n)]; n += 1
     if on('approach'):
         pages.append(page_approach(d, n, status_label)); n += 1
-    if inc.get('concept') and (d.get('concept') or {}).get('image_data'):
-        pages.append(page_concept(d, n, status_label)); n += 1
+    if inc.get('concept'):
+        for i, cp in enumerate(concept_pages_data(d)):
+            pages.append(page_concept(d, n, cp, i == 0)); n += 1
     if mode == 'fixed':
         pages.append(page_your_project(d, n, status_label)); n += 1
         pages.append(page_cost_fixed(d, n, status_label)); n += 1
