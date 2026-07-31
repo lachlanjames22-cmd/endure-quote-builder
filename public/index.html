@@ -488,11 +488,11 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
         <div class="field"><label>Board</label>
           <select id="qc_board" onchange="onBoardChange()"></select>
           <input type="text" id="qc_board_custom" class="custom-inp hidden" placeholder="Board name">
-          <input type="number" id="qc_board_cost_custom" class="custom-inp hidden" placeholder="Board cost $/m² (our cost)"></div>
+          <input type="number" id="qc_board_cost_custom" class="custom-inp hidden" placeholder="Board cost $/m² (our cost, ex GST)"></div>
         <div class="field"><label>Install days <button class="reset-btn" onclick="S.qc.daysOv=null; renderQC(); refresh();">↺ auto</button></label>
           <span class="hint">Auto from productivity — bump it if the job's harder</span>
           <input type="number" id="qc_days" step="0.5"></div>
-        <div class="field"><label>Margin $ <button class="reset-btn" onclick="S.qc.marginOv=null; renderQC(); refresh();">↺ auto</button></label>
+        <div class="field"><label>Margin $ (ex GST) <button class="reset-btn" onclick="S.qc.marginOv=null; renderQC(); refresh();">↺ auto</button></label>
           <span class="hint">Auto = $<span id="qc_gptarget">1500</span>/day. Adjust for autonomy.</span>
           <input type="number" id="qc_margin"></div>
         <div class="field" style="grid-column:1/4;"><label>Job difficulty (multiplies days — labour &amp; margin scale together)</label>
@@ -508,13 +508,13 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
             <input type="text" id="ex_custom" class="custom-inp hidden" placeholder="Name it — e.g. Digging, Lighting"></div>
           <div class="field"><label>Metres (lm) / qty</label>
             <input type="number" id="ex_qty" placeholder="3.6"></div>
-          <div class="field"><label>Rate $/lm (our cost)</label><span class="hint">From rate sheet — editable</span>
+          <div class="field"><label>Rate $/lm (our cost, ex GST)</label><span class="hint">From rate sheet — editable</span>
             <input type="number" id="ex_rate"></div>
-          <div class="field"><label>Materials cost $</label><span class="hint">Auto = lm × rate. No rate? Type the cost — it's used instead</span>
+          <div class="field"><label>Materials cost $ (ex GST)</label><span class="hint">Auto = lm × rate. No rate? Type the cost — it's used instead</span>
             <input type="number" id="ex_cost"></div>
-          <div class="field"><label>Labour $</label>
+          <div class="field"><label>Labour $ (ex GST)</label>
             <input type="number" id="ex_labour"></div>
-          <div class="field"><label>Margin $</label><span class="hint" id="ex_margin_hint"></span>
+          <div class="field"><label>Margin $ (ex GST)</label><span class="hint" id="ex_margin_hint"></span>
             <input type="number" id="ex_margin"></div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;margin-top:4px;">
@@ -541,12 +541,12 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
           <tbody id="rcBoardsBody"></tbody>
         </table>
         <div class="grid3" style="margin-top:8px;">
-          <div class="field"><label>Labour $/day</label><input type="number" id="rc_labour"></div>
+          <div class="field"><label>Labour $/day (ex GST)</label><input type="number" id="rc_labour"></div>
           <div class="field"><label>GP/day north star $</label><input type="number" id="rc_target"></div>
           <div class="field"><label>Target margin %</label><input type="number" id="rc_marginpct"></div>
-          <div class="field"><label>Delivery $/job</label><input type="number" id="rc_delivery"></div>
-          <div class="field"><label>Skip bin $/each</label><input type="number" id="rc_bin"></div>
-          <div class="field"><label>Small-job: under m² / loading $</label>
+          <div class="field"><label>Delivery $/job (ex GST)</label><input type="number" id="rc_delivery"></div>
+          <div class="field"><label>Skip bin $/each (ex GST)</label><input type="number" id="rc_bin"></div>
+          <div class="field"><label>Small-job: under m² / loading $ (ex GST)</label>
             <div style="display:flex;gap:6px;"><input type="number" id="rc_smalljob_m2"><input type="number" id="rc_smalljob_loading"></div></div>
         </div>
         <div style="margin-top:12px;border-top:1px solid var(--rule);padding-top:10px;">
@@ -576,11 +576,11 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
           <select id="rec_lib" onchange="loadRecipeFromLib(this.value)"></select></div>
       </div>
       <label style="margin-top:6px;">Materials — by item</label>
-      <table class="rep"><thead><tr><th style="width:42%">Item</th><th style="width:13%">Qty</th><th style="width:17%">Unit $ (our cost)</th><th style="width:16%">Line $</th><th></th></tr></thead>
+      <table class="rep"><thead><tr><th style="width:42%">Item</th><th style="width:13%">Qty</th><th style="width:17%">Unit $ (our cost, ex GST)</th><th style="width:16%">Line $ ex GST</th><th></th></tr></thead>
         <tbody id="recMatsBody"></tbody></table>
       <button class="add-btn" onclick="addRecMat()">+ Add material</button>
       <label style="margin-top:10px;">Labour — by task</label>
-      <table class="rep"><thead><tr><th style="width:42%">Task</th><th style="width:13%">Days</th><th style="width:17%">Rate $/day</th><th style="width:16%">Line $</th><th></th></tr></thead>
+      <table class="rep"><thead><tr><th style="width:42%">Task</th><th style="width:13%">Days</th><th style="width:17%">Rate $/day (ex GST)</th><th style="width:16%">Line $ ex GST</th><th></th></tr></thead>
         <tbody id="recLabsBody"></tbody></table>
       <button class="add-btn" onclick="addRecLab()">+ Add labour</button>
       <div class="field" style="margin-top:10px;"><label>Margin</label>
@@ -601,8 +601,8 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
 
     <div class="card">
       <h2>&#9313; Job costs — apply to the whole job</h2>
-      <p class="desc">Fixed items that sit outside any package — same on every option. Edit the amounts, add your own. Blank = not on this job. Amounts are inc GST; no margin (pass-through).</p>
-      <table class="rep"><thead><tr><th style="width:55%">Fixed cost</th><th style="width:30%">Amount inc GST</th><th></th></tr></thead>
+      <p class="desc">Fixed items that sit outside any package — same on every option. Edit the amounts, add your own. Blank = not on this job. <strong>Amounts are ex GST</strong> (like every cost you type) — GST is added on the client document; no margin (pass-through).</p>
+      <table class="rep"><thead><tr><th style="width:55%">Fixed cost</th><th style="width:30%">Amount ex GST</th><th></th></tr></thead>
         <tbody id="fixedCostsBody"></tbody></table>
       <button class="add-btn" onclick="addFixedCost()">+ Add fixed cost</button>
       </div>
@@ -679,8 +679,8 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
       <table class="rep" id="manualTable">
         <thead><tr>
           <th style="width:17%">Item</th><th style="width:13%">Type (internal)</th><th style="width:18%">Detail (client sees)</th>
-          <th style="width:7%">Qty</th><th style="width:9%">Unit cost $</th>
-          <th style="width:10%">Cost $</th><th style="width:8%">Margin %</th>
+          <th style="width:7%">Qty</th><th style="width:9%">Unit cost $ <span style="font-weight:400;">ex GST</span></th>
+          <th style="width:10%">Cost $ <span style="font-weight:400;">ex GST</span></th><th style="width:8%">Margin %</th>
           <th style="width:13%">Sell (auto)</th><th></th>
         </tr></thead>
         <tbody id="manualBody"></tbody>
@@ -778,12 +778,12 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
       <input type="text" id="ic_sheet_url" placeholder="https://docs.google.com/spreadsheets/d/…"></div>
 
     <label>Materials</label>
-    <table class="rep"><thead><tr><th style="width:24%">Item</th><th style="width:17%">Supplier</th><th style="width:13%">Stream / option</th><th style="width:8%">Qty</th><th style="width:11%">Unit cost</th><th style="width:12%">Line cost</th><th></th></tr></thead>
+    <table class="rep"><thead><tr><th style="width:24%">Item</th><th style="width:17%">Supplier</th><th style="width:13%">Stream / option</th><th style="width:8%">Qty</th><th style="width:11%">Unit cost ex GST</th><th style="width:12%">Line cost</th><th></th></tr></thead>
     <tbody id="icMatBody"></tbody></table>
     <button class="add-btn" onclick="addIcMat()">+ Add material</button>
 
     <label style="margin-top:12px;">Labour</label>
-    <table class="rep"><thead><tr><th style="width:28%">Task</th><th style="width:13%">Stream / option</th><th style="width:9%">Days</th><th style="width:12%">Day rate</th><th style="width:12%">Line cost</th><th></th></tr></thead>
+    <table class="rep"><thead><tr><th style="width:28%">Task</th><th style="width:13%">Stream / option</th><th style="width:9%">Days</th><th style="width:12%">Day rate ex GST</th><th style="width:12%">Line cost</th><th></th></tr></thead>
     <tbody id="icLabBody"></tbody></table>
     <button class="add-btn" onclick="addIcLab()">+ Add labour line</button>
 
@@ -1076,11 +1076,12 @@ function num(id){ const v=val(id); return v===''?'':Number(v); }
 function stdLines(){
   const area=Number(S.qc.area)||0;
   const anyLines = inCostLines().length>0;
+  // fixed costs are entered ex GST (matching the rate sheet); the client line carries inc GST
   const out = (S.fixedCosts||[]).filter(function(c){return c.label && Number(c.amount)>0;}).map(function(c){
-    return {id:'fx', label:c.label, working:'fixed job cost', amount:Math.round(Number(c.amount)), overridden:false};
+    return {id:'fx', label:c.label, working:'fixed job cost', amount:Math.round(Number(c.amount)*1.1), overridden:false};
   });
   if(anyLines && area>0 && area<Number(S.rc.smalljob_m2) && Number(S.rc.smalljob_loading)>0){
-    out.push({id:'smalljob', label:'Small-job loading', working:'job under '+S.rc.smalljob_m2+'m²', amount:Math.round(Number(S.rc.smalljob_loading)), overridden:false});
+    out.push({id:'smalljob', label:'Small-job loading', working:'job under '+S.rc.smalljob_m2+'m²', amount:Math.round(Number(S.rc.smalljob_loading)*1.1), overridden:false});
   }
   return out;
 }
@@ -1483,9 +1484,9 @@ function renderQcStack(){
   function c(lab,val,extra){ return '<div><div class="t-lab">'+lab+'</div><div class="t-val" style="font-size:14px;">'+val+(extra?' <span style="font-weight:400;color:var(--grey);font-size:11px;">'+extra+'</span>':'')+'</div></div>'; }
   const gpCls = dc.gpDay >= (Number(S.rc.gp_target)||1500) ? 'var(--green)' : 'var(--red)';
   const f=multFactor();
-  el.innerHTML = c('Materials',fmt$(dc.mat),fmt$(dc.matM2)+'/m²')
-    + c('Labour',fmt$(dc.labour),dc.days+' days'+(f!==1?' (×'+(Math.round(f*100)/100)+')':''))
-    + c('Margin',fmt$(dc.margin),Math.round(dc.marginPct*100)+'%')
+  el.innerHTML = c('Materials ex GST',fmt$(dc.mat),fmt$(dc.matM2)+'/m²')
+    + c('Labour ex GST',fmt$(dc.labour),dc.days+' days'+(f!==1?' (×'+(Math.round(f*100)/100)+')':''))
+    + c('Margin ex GST',fmt$(dc.margin),Math.round(dc.marginPct*100)+'%')
     + c('Sell inc GST',fmt$(dc.sellInc),fmt$(Math.round(dc.sellInc/dc.area))+'/m²')
     + '<div><div class="t-lab">GP / day</div><div class="t-val big" style="color:'+gpCls+';">'+fmt$(dc.gpDay)+'</div></div>';
 }
@@ -1532,7 +1533,7 @@ function renderQuoteSummary(){
   let html='';
   const fx = stdLines();
   if(fx.length){
-    html+='<div class="qs-group"><div class="qs-head"><span>Fixed job costs</span><span class="qs-total">'+fmt$(fx.reduce(function(a,l){return a+l.amount;},0))+'</span></div>';
+    html+='<div class="qs-group"><div class="qs-head"><span>Fixed job costs (inc GST on quote)</span><span class="qs-total">'+fmt$(fx.reduce(function(a,l){return a+l.amount;},0))+'</span></div>';
     fx.forEach(function(l){ html+='<div class="qs-line"><span>'+esc(l.label)+'</span><span>'+fmt$(l.amount)+'</span></div>'; });
     html+='</div>';
   }
@@ -1649,8 +1650,8 @@ function renderManualTotals(){
   const mg=ls.reduce(function(a,c){return a+(Number(c.margin)||0);},0);
   const inc=ls.reduce(function(a,c){return a+lineSellInc(c);},0);
   el.innerHTML = '<div><div class="t-lab">Items</div><div class="t-val">'+ls.length+'</div></div>'
-    +'<div><div class="t-lab">Cost</div><div class="t-val">'+fmt$(cost)+'</div></div>'
-    +'<div><div class="t-lab">Margin</div><div class="t-val">'+fmt$(mg)+'</div></div>'
+    +'<div><div class="t-lab">Cost ex GST</div><div class="t-val">'+fmt$(cost)+'</div></div>'
+    +'<div><div class="t-lab">Margin ex GST</div><div class="t-val">'+fmt$(mg)+'</div></div>'
     +'<div><div class="t-lab">Sell inc GST</div><div class="t-val big">'+fmt$(inc)+'</div></div>';
 }
 function manualAsOptions(){
@@ -1729,9 +1730,9 @@ function renderRecTotals(){
   ensureRec();
   const mat=recMatTotal(), lab=recLabTotal(), mg=recMargin(), sellEx=mat+lab+mg;
   const basis = S.rec.marginMode==='day' ? (recDays()+'d × '+fmt$(Number(S.rec.marginDay)||0)) : ((Number(S.rec.marginPct)||0)+'% of sell');
-  el.innerHTML = '<div><div class="t-lab">Materials</div><div class="t-val">'+fmt$(mat)+'</div></div>'
-    +'<div><div class="t-lab">Labour</div><div class="t-val">'+fmt$(lab)+' <span style="font-size:10px;color:var(--grey);">'+recDays()+'d</span></div></div>'
-    +'<div><div class="t-lab">Margin</div><div class="t-val">'+fmt$(mg)+' <span style="font-size:10px;color:var(--grey);">'+basis+'</span></div></div>'
+  el.innerHTML = '<div><div class="t-lab">Materials ex GST</div><div class="t-val">'+fmt$(mat)+'</div></div>'
+    +'<div><div class="t-lab">Labour ex GST</div><div class="t-val">'+fmt$(lab)+' <span style="font-size:10px;color:var(--grey);">'+recDays()+'d</span></div></div>'
+    +'<div><div class="t-lab">Margin ex GST</div><div class="t-val">'+fmt$(mg)+' <span style="font-size:10px;color:var(--grey);">'+basis+'</span></div></div>'
     +'<div><div class="t-lab">Sell inc GST — the only number the client sees</div><div class="t-val big">'+fmt$(Math.round(sellEx*1.1))+'</div></div>';
 }
 function renderRecipeImgToggle(){
@@ -1926,7 +1927,7 @@ function renderBundles(){
       ${b.isHero?`<div class="grid3" style="margin-top:8px;">
         <div class="field" style="margin:0;"><label>Photo</label>${materialSelect(b.imgSel, "S.bundles["+i+"].imgSel=this.value; renderBundles(); refresh();")}
           ${b.imgSel===CUSTOM?`<input type="text" class="custom-inp" placeholder="Image filename" value="${escA(b.imgCustom)}" oninput="S.bundles[${i}].imgCustom=this.value">`:''}</div>
-        <div class="field" style="margin:0;"><label>Price override</label><input type="number" placeholder="auto ${price}" value="${escA(b.price_ov)}" oninput="S.bundles[${i}].price_ov=this.value"></div>
+        <div class="field" style="margin:0;"><label>Price override (inc GST)</label><input type="number" placeholder="auto ${price}" value="${escA(b.price_ov)}" oninput="S.bundles[${i}].price_ov=this.value"></div>
         <div class="field" style="margin:0;"><label>Spec line override</label><input type="text" placeholder="(auto from first line)" value="${escA(b.spec_ov)}" oninput="S.bundles[${i}].spec_ov=this.value"></div>
         <div class="field" style="grid-column:1/3;margin:0;"><label>Description override</label><input type="text" placeholder="${escA(heroDesc(b))}" value="${escA(b.desc_ov)}" oninput="S.bundles[${i}].desc_ov=this.value"></div>
         <div class="field" style="margin:0;"><label>Bullets override (one per line)</label><textarea placeholder="auto: ${escA(heroBullets(b).join(', '))}" oninput="S.bundles[${i}].bullets_ov=this.value">${esc(b.bullets_ov)}</textarea></div>
@@ -2379,7 +2380,7 @@ function autoFillInternal(){
     if(Number(c.labour)) labs.push({task:c.label+' — labour', stream:stream, days:+((Number(c.labour)||0)/ld).toFixed(1), rate:ld});
   });
   (S.fixedCosts||[]).filter(function(c){return c.label && Number(c.amount)>0;}).forEach(function(c){
-    passes.push({label:c.label, type:'At-cost', cost:Math.round(Number(c.amount)/1.1), margin:''});
+    passes.push({label:c.label, type:'At-cost', cost:Math.round(Number(c.amount)), margin:''});
   });
   S.ic.mats = mats.length?mats:[{item:'',supplier:'',stream:'',qty:'',unit:''}];
   S.ic.labs = labs.length?labs:[{task:'',stream:'',days:'',rate:''}];
@@ -2505,7 +2506,7 @@ function pvInternal(){
     <div class="ic-banner">Internal — not for client distribution — PM budget reference only</div>
     <div class="ic-body">
       <div class="ic-title">${esc(val('client_name'))||'Client'} — Job Costing</div>
-      <div class="ic-sub">${esc(val('project_type'))||'Job'} · ${esc(val('location'))||''} · ${esc(effDate())||''} · ${S.mode==='fixed'?'Quote (fixed)':'Proposal (range)'}</div>
+      <div class="ic-sub">${esc(val('project_type'))||'Job'} · ${esc(val('location'))||''} · ${esc(effDate())||''} · ${S.mode==='fixed'?'Quote (fixed)':'Proposal (range)'} · all figures ex GST</div>
       ${sheetNote}
       <div class="ic-h">Materials</div>
       <table class="ic-table"><tr><th>Item</th><th>Supplier</th><th>Stream</th><th>Qty</th><th>Unit cost</th><th>Line</th></tr>${matRows||'<tr><td colspan="6">—</td></tr>'}

@@ -52,6 +52,11 @@ internal-costing.json, site photos). Deploys to **quote.enduredecks.com.au**.
   survives New job and travels in the setup export.
 - Internal costing (internal-costing.json / the red-banner page) is PM-only and
   NEVER merged into the client document.
+- GST convention (2026-07-30): ALL working figures on Matt's side are ex GST —
+  costs, rates, margins, fixed job costs (matches the rate sheet). GST is added
+  once, at the client-facing sell/render price, and every money field is
+  labelled ex/inc. Fixed-cost entries are ×1.1 onto the client cost line;
+  internal pass-throughs carry the ex figure untouched.
 - Rates live in a Google Sheet — editing the sheet updates the tool, no deploy.
 
 ## Deploy state (LIVE as of 2026-07-29)

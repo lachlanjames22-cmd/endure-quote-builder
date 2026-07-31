@@ -145,7 +145,7 @@ def render(internal, job_data, out_pdf):
     ctx = esc(internal.get("context_line") or (jd.get("fixed") or {}).get("package_label") or "")
     if ctx:
         sub_bits.append("In costings: " + ctx)
-    sub = " · ".join(b for b in sub_bits if b)
+    sub = " · ".join(b for b in sub_bits if b) + " · all figures ex GST"
 
     # materials grouped by stream, subtotals when more than one stream
     streams = []
