@@ -157,7 +157,7 @@ text-transform:uppercase;color:var(--grey);padding:2.2mm 5mm;font-weight:500;}
 .cb2-block{border:1px solid var(--rule);margin-top:3mm;}
 .cb2-head{display:grid;grid-template-columns:1fr 30mm;background:var(--dark);color:var(--white);padding:3mm 6mm;font-size:10pt;}
 .cb2-head>div:last-child{text-align:right;font-size:8pt;letter-spacing:.15em;}
-.cb2-subhead{padding:3.5mm 6mm 1mm;font-size:8pt;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--ink);border-top:1.5px solid var(--ink);margin-top:1.5mm;}
+.cb2-subhead{background:var(--ink);color:var(--cream);padding:2mm 6mm;font-size:8pt;font-weight:700;letter-spacing:.16em;text-transform:uppercase;margin-top:1.5mm;}
 .cb2-line{display:grid;grid-template-columns:1fr 30mm;padding:3mm 6mm;border-bottom:1px solid var(--rule);font-size:10pt;}
 .concept-grid{margin-top:4mm;display:grid;gap:4mm;}
 .concept-grid.l1{grid-template-columns:1fr;}
@@ -598,18 +598,19 @@ def page_cost_fixed(d, n, status_label):
     fx = d['fixed']
     lines, saw_fixed = '', False
     for l in fx['cost_lines']:
-        # black "Fixed costs" subhead separates per-job fixed lines from the project items
+        # black "Project requirements" banner separates per-job fixed lines from the project items
         if l.get('group') == 'fixed' and not saw_fixed:
             saw_fixed = True
-            lines += '<div class="cb2-subhead">Fixed costs</div>'
+            lines += '<div class="cb2-subhead">Project requirements</div>'
+        # line amounts display ex GST; the total block shows both ex and inc
         lines += (f'<div class="cb2-line"><div>{l["label"]}<div class="desc">{l["desc"]}</div></div>'
-                  f'<div class="amount">{fmt_money(l["amount"], 2)}</div></div>')
+                  f'<div class="amount">{fmt_money(l["amount"] / 1.1, 2)}</div></div>')
     return f'''<div class="page">{head(f"Cost Breakdown &middot; {n:02d}")}<div class="pbody">
   <div class="eyebrow">Pricing Breakdown</div>
   <div class="title">Cost <span class="mustard">breakdown.</span></div>
-  <p class="lead">Your full project, line by line. All amounts inc GST.</p>
+  <p class="lead">Your full project, line by line. Line amounts ex GST &mdash; totals shown both ex and inc GST.</p>
   <div class="cb2-block">
-    <div class="cb2-head"><div>{fx["package_label"]}</div><div>INC GST</div></div>
+    <div class="cb2-head"><div>{fx["package_label"]}</div><div>EX GST</div></div>
     {lines}
     <div class="cb2-total"><div class="name">Total Project Price</div>
       <div class="ex">{fmt_money(fx["subtotal_ex_gst"], 2)} ex GST</div>
