@@ -93,7 +93,7 @@ details.rates summary{cursor:pointer;font-weight:600;font-size:12px;color:var(--
 #pvRoot .ic-foot{font-size:7.5pt;color:#999;font-style:italic;margin-top:5mm;border-top:1px solid #ddd;padding-top:2mm;}
 
 /* ---- live preview column ---- */
-.preview-col{width:430px;flex-shrink:0;}
+.preview-col{width:430px;flex-shrink:0;align-self:stretch;}
 .pv-sticky{position:sticky;top:14px;}
 .pv-label{font-size:11px;color:var(--grey);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;}
 .pv-note{text-transform:none;letter-spacing:0;font-style:italic;}
@@ -2153,17 +2153,17 @@ function pvPagesCostRange(n){
   const compact = active.length>1;
   const cards = active.map(o=>pvOptionCard(o,compact)).join('') || '<p style="color:var(--grey);font-style:italic;">Add options on the left…</p>';
   if(active.length<=1){
-    return [`<div class="page">${pvHead('Cost Breakdown · '+String(n).padStart(2,'0'))}<div class="pbody">
-      <div class="eyebrow">Pricing Breakdown</div><div class="title">Cost <span class="mustard">breakdown.</span></div>
+    return [`<div class="page">${pvHead('Price Breakdown · '+String(n).padStart(2,'0'))}<div class="pbody">
+      <div class="eyebrow">Pricing Breakdown</div><div class="title">Price <span class="mustard">breakdown.</span></div>
       <p class="lead">A preliminary range for your project. Numbers firm up at plan sign-off.</p>
       ${cards}${pvAltCallouts()}${pvScopeBlock()}${pvFoot(n)}</div></div>`];
   }
   return [
-    `<div class="page">${pvHead('Cost Breakdown · '+String(n).padStart(2,'0'))}<div class="pbody">
+    `<div class="page">${pvHead('Price Breakdown · '+String(n).padStart(2,'0'))}<div class="pbody">
       <div class="eyebrow">Pricing Breakdown</div><div class="title">Your <span class="mustard">options.</span></div>
       <p class="lead">Same site, priced a few ways. All ranges inc/ex GST as shown — pick a starting point, refine at approval.</p>
       ${cards}${pvAltCallouts()}${pvFoot(n)}</div></div>`,
-    `<div class="page">${pvHead('Cost Breakdown · '+String(n+1).padStart(2,'0'))}<div class="pbody">
+    `<div class="page">${pvHead('Price Breakdown · '+String(n+1).padStart(2,'0'))}<div class="pbody">
       <div class="eyebrow">Pricing Breakdown</div><div class="title">Scope <span class="mustard">&amp; assumptions.</span></div>
       <p class="lead">What's covered across the options above.</p>
       ${pvScopeBlock()}${pvFoot(n+1)}</div></div>`];
@@ -2216,11 +2216,11 @@ function pvCostFixed(n){
     if(l.group==='fixed' && !sawFixed){ sawFixed=true; h='<div class="cb2-subhead">Project requirements</div>'; }
     return h+`<div class="cb2-line"><div>${esc(l.label)}<div class="desc">${esc(l.desc)}</div></div><div class="amount">${fmt$2(l.amount/1.1)}</div></div>`; }).join('');
   const tot = totalInc();
-  return `<div class="page">${pvHead('Cost Breakdown · '+String(n).padStart(2,'0'))}<div class="pbody">
-    <div class="eyebrow">Pricing Breakdown</div><div class="title">Cost <span class="mustard">breakdown.</span></div>
+  return `<div class="page">${pvHead('Price Breakdown · '+String(n).padStart(2,'0'))}<div class="pbody">
+    <div class="eyebrow">Pricing Breakdown</div><div class="title">Price <span class="mustard">breakdown.</span></div>
     <p class="lead">Your full project, line by line. Line amounts ex GST — totals shown both ex and inc GST.</p>
     <div class="cb2-block">
-      <div class="cb2-head"><div>${esc(effPackageLabel())}</div><div>EX GST</div></div>
+      <div class="cb2-head"><div>Project inclusions</div><div>EX GST</div></div>
       ${lines}
       <div class="cb2-total"><div class="name">Total Project Price</div>
         <div class="ex">${fmt$2(tot/1.1)} ex GST</div>
@@ -2567,7 +2567,7 @@ function pvInternal(){
   </div>`;
 }
 
-const PV_NAMES = {cover:'Cover', approach:'About Endure', concept:'Your Concept', options:'Options', scope:'Scope & Assumptions', project:'Your Project', cost:'Cost Breakdown', finance:'Finance', approval:'Approval & Sign', run:'Project Run', internal:'INTERNAL — PM only'};
+const PV_NAMES = {cover:'Cover', approach:'About Endure', concept:'Your Concept', options:'Options', scope:'Scope & Assumptions', project:'Your Project', cost:'Price Breakdown', finance:'Finance', approval:'Approval & Sign', run:'Project Run', internal:'INTERNAL — PM only'};
 let pvMode = 'follow';
 let pvActive = 'cover';
 function togglePvMode(){
@@ -3436,7 +3436,9 @@ async function saveJob(){
         attachments:S.ic.attachments.map(function(a){return {name:a.name, mime:a.mime||'image/jpeg', b64:a.dataUrl.split(',')[1]};})});
       if(!resp || !resp.ok) throw new Error((resp&&resp.error)||'Endpoint save failed.');
       statusEl.className='status-line ok';
-      statusEl.innerHTML = 'Saved. Job folder: <a class="folder-link" href="'+(resp.folderUrl||'#')+'" target="_blank">'+esc(folderName)+'</a> — now ask Claude to generate the '+(S.mode==='range'?'proposal':'quote')+' for '+esc(clientName)+'.';
+      statusEl.innerHTML = 'Saved. Job folder: <a class="folder-link" href="'+(resp.folderUrl||'#')+'" target="_blank">'+esc(folderName)+'</a>'
+        +(resp.logged?' · logged to the Quote Log ✓':' · <span style="color:var(--red);">Quote Log append failed — add the row by hand</span>')
+        +' — now ask Claude to generate the '+(S.mode==='range'?'proposal':'quote')+' for '+esc(clientName)+'.';
       btn.disabled=false;
       return;
     }

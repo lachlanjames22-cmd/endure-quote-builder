@@ -58,6 +58,13 @@ internal-costing.json, site photos). Deploys to **quote.enduredecks.com.au**.
   labelled ex/inc. Fixed-cost entries are ×1.1 onto the client cost line;
   internal pass-throughs carry the ex figure untouched.
 - Rates live in a Google Sheet — editing the sheet updates the tool, no deploy.
+- Quote Log (2026-07-30): every Save to Drive appends a row to the "_Quote Log"
+  spreadsheet (auto-created in Incoming Jobs; Log tab + Dashboard tab with
+  pipeline/conversion/GP formulas). Status column (Sent/Won/Lost) is updated
+  by hand as jobs land — that drives the conversion metrics. Best-effort:
+  a log failure never fails the save (resp.logged flags it in the UI).
+- Drive-backed image library: "_Image Library" folder in Incoming Jobs,
+  actions img_lib_list/get/put, overlay picker on hero/recipe/concept images.
 
 ## Deploy state (LIVE as of 2026-07-29)
 1. ✅ GitHub: `lachlanjames22-cmd/endure-quote-builder`, default flow is

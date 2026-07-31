@@ -425,23 +425,23 @@ def pages_cost_range(d, n, status_label):
   <p style="margin:0;">{r["preliminary_note"]}</p></div>'''
 
     if not multi:
-        return [f'''<div class="page">{head(f"Cost Breakdown &middot; {n:02d}")}<div class="pbody">
+        return [f'''<div class="page">{head(f"Price Breakdown &middot; {n:02d}")}<div class="pbody">
   <div class="eyebrow">Pricing Breakdown</div>
-  <div class="title">Cost <span class="mustard">breakdown.</span></div>
+  <div class="title">Price <span class="mustard">breakdown.</span></div>
   <p class="lead">Your full project, line by line. All amounts inc GST.</p>
   {option_cards}
   {alt_html}
   {scope_block}
 {foot(n)}</div></div>''']
 
-    page1 = f'''<div class="page">{head(f"Cost Breakdown &middot; {n:02d}")}<div class="pbody">
+    page1 = f'''<div class="page">{head(f"Price Breakdown &middot; {n:02d}")}<div class="pbody">
   <div class="eyebrow">Pricing Breakdown</div>
   <div class="title">Your <span class="mustard">options.</span></div>
   <p class="lead">Same site, priced a few ways. All ranges inc/ex GST as shown &mdash; pick a starting point, refine at approval.</p>
   {option_cards}
   {alt_html}
 {foot(n)}</div></div>'''
-    page2 = f'''<div class="page">{head(f"Cost Breakdown &middot; {n+1:02d}")}<div class="pbody">
+    page2 = f'''<div class="page">{head(f"Price Breakdown &middot; {n+1:02d}")}<div class="pbody">
   <div class="eyebrow">Pricing Breakdown</div>
   <div class="title">Scope <span class="mustard">&amp; assumptions.</span></div>
   <p class="lead">What&rsquo;s covered across the options above.</p>
@@ -605,12 +605,12 @@ def page_cost_fixed(d, n, status_label):
         # line amounts display ex GST; the total block shows both ex and inc
         lines += (f'<div class="cb2-line"><div>{l["label"]}<div class="desc">{l["desc"]}</div></div>'
                   f'<div class="amount">{fmt_money(l["amount"] / 1.1, 2)}</div></div>')
-    return f'''<div class="page">{head(f"Cost Breakdown &middot; {n:02d}")}<div class="pbody">
+    return f'''<div class="page">{head(f"Price Breakdown &middot; {n:02d}")}<div class="pbody">
   <div class="eyebrow">Pricing Breakdown</div>
-  <div class="title">Cost <span class="mustard">breakdown.</span></div>
+  <div class="title">Price <span class="mustard">breakdown.</span></div>
   <p class="lead">Your full project, line by line. Line amounts ex GST &mdash; totals shown both ex and inc GST.</p>
   <div class="cb2-block">
-    <div class="cb2-head"><div>{fx["package_label"]}</div><div>EX GST</div></div>
+    <div class="cb2-head"><div>Project inclusions</div><div>EX GST</div></div>
     {lines}
     <div class="cb2-total"><div class="name">Total Project Price</div>
       <div class="ex">{fmt_money(fx["subtotal_ex_gst"], 2)} ex GST</div>
