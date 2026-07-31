@@ -32,6 +32,9 @@ Both share: Cover, Approach, Finance (HandyPay), Project Run. They diverge on Co
 - `finance`: `wk_low`, `wk_high`, `rows[]` (`{label, sub, wk3, wk5, wk7}`).
 - `project_run`: `lead`, `steps[]` (`{num, title, body}`, normally 7), `payment_schedule[]` (`{pct, label}`, must sum to 100).
 
+## Image fields — asset filename OR data URI
+`range.options[].image` and `fixed.your_project.project_items[].image` accept either an asset filename (e.g. `merbau.jpg`, resolved against `assets/`) or an uploaded image as a `data:image/...;base64,` URI (the builder compresses uploads to ≤1200px JPEG). Empty string renders the cream placeholder box, unchanged.
+
 ## Fixed brand assets (never vary)
 
 `assets/cover.jpg`, `logo.png`, `portrait.jpg`, `strip1.jpg`, `strip2.jpg`, `strip3.jpg`. The "About Endure" copy, the 20-Year Standard five points, and the Finance/HandyPay page copy are hard-coded in the renderer — never per-job.

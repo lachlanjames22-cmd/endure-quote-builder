@@ -32,6 +32,11 @@ def fmt_money(n, decimals=0):
 def esc(v):
     return '' if v is None else str(v)
 
+def img_src(name):
+    """Job-data images are either an asset filename or an uploaded data URI."""
+    name = name or ''
+    return name if name.startswith('data:') else I + name
+
 def title_html(d, key, default_inner):
     """Per-job editable section headline. d['titles'][key] overrides the default;
     override renders plain, default keeps its mustard-accented markup."""
@@ -388,7 +393,7 @@ def _option_card_html(opt, compact):
       <div class="range-title">{opt["label"]}</div>
     </div>
     <div class="range-body">
-      <div class="range-img"><img src="{I}{opt["image"]}"></div>
+      <div class="range-img"><img src="{img_src(opt["image"])}"></div>
       <div>
         <div class="range-price">{fmt_money(opt["price_low_inc_gst"])} &ndash; {fmt_money(opt["price_high_inc_gst"])}</div>
         <div class="range-price-sub">Inc GST &middot; {opt.get("size_label", "")}</div>
@@ -522,7 +527,7 @@ def page_your_project(d, n, status_label):
         price_html = (f'<div class="yp-price">{fmt_money(it["price_inc_gst"], 2)} <span class="lab">INC GST</span></div>'
                       if it.get('price_inc_gst') not in (None, '') else '')
         cards.append(f'''<div class="yp-card{compact}">
-    <div class="yp-img"><img src="{I}{it.get("image","")}"></div>
+    <div class="yp-img"><img src="{img_src(it.get("image",""))}"></div>
     <div class="yp-body">
       {label_row}
       {price_html}

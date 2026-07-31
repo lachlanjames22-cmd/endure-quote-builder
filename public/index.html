@@ -1681,7 +1681,7 @@ function addCustomHero(){
 // (b.recipe) and flows verbatim into the internal costing auto-fill.
 function blankRecipe(){
   const rc = (typeof S!=='undefined' && S && S.rc) ? S.rc : RATECARD;
-  return {name:'', imgSel:'', imgCustom:'',
+  return {name:'', imgSel:'', imgCustom:'', imgUpload:null,
     mats:[{item:'',qty:'',unit:''}],
     labs:[{task:'',days:'',rate:(Number(rc.labour_day)||960)}],
     marginMode:'pct', marginPct:(Number(rc.margin_pct_default)||35),
@@ -1745,7 +1745,8 @@ function syncRecipeInputs(){
   setVal('rec_mpct', S.rec.marginPct); setVal('rec_mday', S.rec.marginDay);
   setVal('rec_img_custom', S.rec.imgCustom);
   const w=document.getElementById('rec_img_wrap');
-  if(w) w.innerHTML = materialSelect(S.rec.imgSel, "S.rec.imgSel=this.value; renderRecipeImgToggle();");
+  if(w) w.innerHTML = materialSelect(S.rec.imgSel, "S.rec.imgSel=this.value; renderRecipeImgToggle();")
+    + uploadThumbHtml(S.rec.imgUpload, "S.rec.imgUpload=null; syncRecipeInputs();", "recImgPicked(this)");
   renderRecipeImgToggle();
   const rp=document.getElementById('rec_mm_pct'), rd=document.getElementById('rec_mm_day');
   if(rp) rp.checked = S.rec.marginMode!=='day';
@@ -1797,7 +1798,7 @@ function saveRecipeToLib(){
   ensureRec();
   S.rec.name = (val('rec_name')||'').trim();
   if(!S.rec.name){ notify('Name the recipe first — e.g. "Custom deck".'); return; }
-  const entry = {name:S.rec.name, imgSel:S.rec.imgSel, imgCustom:S.rec.imgCustom,
+  const entry = {name:S.rec.name, imgSel:S.rec.imgSel, imgCustom:S.rec.imgCustom, imgUpload:S.rec.imgUpload||null,
     mats:recCleanMats(), labs:recCleanLabs(),
     marginMode:S.rec.marginMode, marginPct:S.rec.marginPct, marginDay:S.rec.marginDay};
   const i = S.recipeLib.findIndex(function(r){return r.name===entry.name;});
@@ -1821,7 +1822,7 @@ function saveRecipe(){
   let b = bundleByName(old);
   if(b){ if(renaming) b.name=name; }
   else { b = ensureBundle(name, {isHero:true, inCost:true}); }
-  b.imgSel = S.rec.imgSel; b.imgCustom = S.rec.imgCustom;
+  b.imgSel = S.rec.imgSel; b.imgCustom = S.rec.imgCustom; b.imgUpload = S.rec.imgUpload||null;
   b.recipe = {mats:recCleanMats(), labs:recCleanLabs(),
     marginMode:S.rec.marginMode, marginPct:S.rec.marginPct, marginDay:S.rec.marginDay, days:recDays()};
   const mg = recMargin();
@@ -1837,7 +1838,7 @@ function saveRecipe(){
 function editRecipe(i){
   const b = S.bundles[i];
   if(!b || !b.recipe) return;
-  S.rec = Object.assign(blankRecipe(), {name:b.name, imgSel:b.imgSel||'', imgCustom:b.imgCustom||'',
+  S.rec = Object.assign(blankRecipe(), {name:b.name, imgSel:b.imgSel||'', imgCustom:b.imgCustom||'', imgUpload:b.imgUpload||null,
     mats:JSON.parse(JSON.stringify(b.recipe.mats||[])), labs:JSON.parse(JSON.stringify(b.recipe.labs||[])),
     marginMode:b.recipe.marginMode||'pct', marginPct:b.recipe.marginPct, marginDay:b.recipe.marginDay,
     editing:b.name});
@@ -1926,7 +1927,8 @@ function renderBundles(){
       </div>`:''}
       ${b.isHero?`<div class="grid3" style="margin-top:8px;">
         <div class="field" style="margin:0;"><label>Photo</label>${materialSelect(b.imgSel, "S.bundles["+i+"].imgSel=this.value; renderBundles(); refresh();")}
-          ${b.imgSel===CUSTOM?`<input type="text" class="custom-inp" placeholder="Image filename" value="${escA(b.imgCustom)}" oninput="S.bundles[${i}].imgCustom=this.value">`:''}</div>
+          ${b.imgSel===CUSTOM?`<input type="text" class="custom-inp" placeholder="Image filename" value="${escA(b.imgCustom)}" oninput="S.bundles[${i}].imgCustom=this.value">`:''}
+          ${uploadThumbHtml(b.imgUpload, `S.bundles[${i}].imgUpload=null; renderBundles(); refresh();`, `heroImgPicked(this, ${i})`)}</div>
         <div class="field" style="margin:0;"><label>Price override (inc GST)</label><input type="number" placeholder="auto ${price}" value="${escA(b.price_ov)}" oninput="S.bundles[${i}].price_ov=this.value"></div>
         <div class="field" style="margin:0;"><label>Spec line override</label><input type="text" placeholder="(auto from first line)" value="${escA(b.spec_ov)}" oninput="S.bundles[${i}].spec_ov=this.value"></div>
         <div class="field" style="grid-column:1/3;margin:0;"><label>Description override</label><input type="text" placeholder="${escA(heroDesc(b))}" value="${escA(b.desc_ov)}" oninput="S.bundles[${i}].desc_ov=this.value"></div>
@@ -2149,10 +2151,11 @@ function pvYourProject(n){
   const compact = hs.length>1;
   const cards = hs.map(function(b){
     const imgLabel = heroImage(b) || b.name;
+    const imgCell = b.imgUpload ? '<img src="'+b.imgUpload+'" style="width:100%;height:100%;object-fit:cover;">' : ph(imgLabel,'height:100%;');
     const bul = heroBullets(b).map(function(x){return '<li>'+esc(x)+'</li>';}).join('');
     const price = heroPriceOf(b);
     return `<div class="yp-card${compact?' compact':''}">
-      <div class="yp-img">${ph(imgLabel,'height:100%;')}</div>
+      <div class="yp-img">${imgCell}</div>
       <div class="yp-body">
         ${compact?`<div class="yp-item-label">${esc(b.name)}</div>`:''}
         ${price?`<div class="yp-price">${fmt$(price)} <span class="lab">INC GST</span></div>`:''}
@@ -2874,7 +2877,7 @@ function buildJobData(clientName){
         project_items:heroes().map(function(b){
           const item = {
             label:b.name,
-            image:b.imgSel===CUSTOM?(b.imgCustom||''):imageForLabel(b.imgSel),
+            image:b.imgUpload || (b.imgSel===CUSTOM?(b.imgCustom||''):imageForLabel(b.imgSel)),
             spec_label:heroSpec(b), description:heroDesc(b),
             bullets:heroBullets(b) };
           const pr = heroPriceOf(b);
@@ -2932,6 +2935,44 @@ async function generatePdf(){
     statusEl.className='status-line err'; statusEl.textContent='PDF failed: '+e.message;
   }
   btn.disabled=false;
+}
+
+// Shared: read + compress an image file to a JPEG data URL (keeps requests and
+// localStorage drafts small). cb(dataUrl).
+function compressImageFile(f, maxW, q, cb){
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const img=new Image();
+    img.onload=function(){
+      const sc=Math.min(1, maxW/img.width);
+      const cv=document.createElement('canvas');
+      cv.width=Math.round(img.width*sc); cv.height=Math.round(img.height*sc);
+      cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+      cb(cv.toDataURL('image/jpeg', q));
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(f);
+}
+// Hero/recipe photo uploads — for showing something that isn't in the asset set
+function heroImgPicked(input, i){
+  const f=input.files && input.files[0]; if(!f) return;
+  compressImageFile(f, 1200, 0.82, function(dataUrl){
+    if(S.bundles[i]){ S.bundles[i].imgUpload=dataUrl; renderBundles(); refresh(); }
+  });
+  input.value='';
+}
+function recImgPicked(input){
+  const f=input.files && input.files[0]; if(!f) return;
+  compressImageFile(f, 1200, 0.82, function(dataUrl){
+    ensureRec(); S.rec.imgUpload=dataUrl; syncRecipeInputs();
+  });
+  input.value='';
+}
+function uploadThumbHtml(dataUrl, clearJs, pickJs){
+  return dataUrl
+    ? '<div style="margin-top:4px;"><img src="'+dataUrl+'" style="height:32px;border-radius:4px;border:1px solid var(--rule);vertical-align:middle;"> <span style="font-size:10.5px;color:var(--grey);">uploaded — used instead of the pick above</span> <button class="rm-btn" onclick="'+clearJs+'">✕</button></div>'
+    : '<label class="sk-btn" style="cursor:pointer;display:inline-block;margin-top:4px;font-size:10.5px;padding:3px 8px;">📤 or upload an image<input type="file" accept="image/*" style="display:none" onchange="'+pickJs+'"></label>';
 }
 
 // ---------------- concept pages (one document page each: single / 2-grid / 4-grid) ----------------
