@@ -33,7 +33,7 @@ JOBS = os.environ.get("INCOMING_JOBS_ID")
 
 SCOPES = [
     "https://www.googleapis.com/auth/drive",
-    "https://www.googleapis.com/auth/spreadsheets.readonly",
+    "https://www.googleapis.com/auth/spreadsheets",
 ]
 
 
@@ -168,7 +168,13 @@ def save_job(body):
         media = MediaIoBaseUpload(io.BytesIO(base64.b64decode(a["b64"])), mimetype=a.get("mime") or "image/jpeg")
         drive.files().create(body={"name": a["name"], "parents": [folder["id"]]},
                              media_body=media, supportsAllDrives=True).execute()
-    return {"ok": True, "folderUrl": folder.get("webViewLink"), "folderId": folder["id"]}
+    logged = False
+    try:  # quote-log append is best-effort — a log hiccup must never fail the save
+        log_quote(body, folder.get("webViewLink"))
+        logged = True
+    except Exception:  # noqa: BLE001
+        pass
+    return {"ok": True, "folderUrl": folder.get("webViewLink"), "folderId": folder["id"], "logged": logged}
 
 
 # ── render (the real renderer — same code path as the skill) ────────────────
@@ -197,6 +203,82 @@ def render_pdf(body):
             pass  # PDF still returns to the browser even if Drive filing fails
     return Response(content=pdf_bytes, media_type="application/pdf",
                     headers={"Content-Disposition": f'attachment; filename="{slug}_Proposal.pdf"'})
+
+
+# ── quote log (every saved quote appends a row; Dashboard tab = CEO view) ───
+QUOTE_LOG_NAME = "_Quote Log"
+LOG_HEADERS = ["Date", "Client", "Location", "Lane", "Total inc GST", "Sell ex GST",
+               "Cost ex GST", "GP $ ex", "GP %", "GP/day", "Install days",
+               "Extras offered $ inc", "Status", "Job folder"]
+DASH_ROWS = [
+    ["ENDURE — QUOTE PIPELINE  (auto-updates from the Log tab; set Status to Won or Lost as jobs land)"],
+    [],
+    ["This month — quotes sent", "=COUNTIFS(Log!A:A,\">=\"&EOMONTH(TODAY(),-1)+1)"],
+    ["This month — value sent (inc GST)", "=SUMIFS(Log!E:E,Log!A:A,\">=\"&EOMONTH(TODAY(),-1)+1)"],
+    ["Pipeline (Sent) — value inc GST", "=SUMIFS(Log!E:E,Log!M:M,\"Sent\")"],
+    ["Pipeline (Sent) — GP forecast ex GST", "=SUMIFS(Log!H:H,Log!M:M,\"Sent\")"],
+    ["Won — value inc GST (all time)", "=SUMIFS(Log!E:E,Log!M:M,\"Won\")"],
+    ["Conversion (won / decided)", "=IFERROR(COUNTIF(Log!M:M,\"Won\")/(COUNTIF(Log!M:M,\"Won\")+COUNTIF(Log!M:M,\"Lost\")),\"—\")"],
+    ["Avg GP % (won jobs)", "=IFERROR(AVERAGEIF(Log!M:M,\"Won\",Log!I:I),\"—\")"],
+    [],
+    ["BY MONTH"],
+    ["=QUERY(Log!A2:N,\"select year(A), month(A)+1, count(B), sum(E), sum(H) where A is not null "
+     "group by year(A), month(A)+1 order by year(A) desc, month(A)+1 desc "
+     "label year(A) 'Year', month(A)+1 'Month', count(B) 'Quotes', sum(E) 'Sent $ inc', sum(H) 'GP $ ex'\",0)"],
+]
+
+
+def _quote_log_id(drive, sheets):
+    q = (f"'{JOBS}' in parents and name = '{QUOTE_LOG_NAME}' "
+         "and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false")
+    res = drive.files().list(q=q, fields="files(id)", supportsAllDrives=True,
+                             includeItemsFromAllDrives=True, corpora="allDrives").execute()
+    hits = res.get("files", [])
+    if hits:
+        return hits[0]["id"]
+    made = drive.files().create(
+        body={"name": QUOTE_LOG_NAME, "mimeType": "application/vnd.google-apps.spreadsheet",
+              "parents": [JOBS]},
+        fields="id", supportsAllDrives=True).execute()
+    sid = made["id"]
+    meta = sheets.spreadsheets().get(spreadsheetId=sid).execute()
+    first = meta["sheets"][0]["properties"]["sheetId"]
+    sheets.spreadsheets().batchUpdate(spreadsheetId=sid, body={"requests": [
+        {"updateSheetProperties": {"properties": {"sheetId": first, "title": "Log"},
+                                   "fields": "title"}},
+        {"addSheet": {"properties": {"title": "Dashboard"}}},
+    ]}).execute()
+    vals = sheets.spreadsheets().values()
+    vals.update(spreadsheetId=sid, range="Log!A1", valueInputOption="USER_ENTERED",
+                body={"values": [LOG_HEADERS]}).execute()
+    vals.update(spreadsheetId=sid, range="Dashboard!A1", valueInputOption="USER_ENTERED",
+                body={"values": DASH_ROWS}).execute()
+    return sid
+
+
+def log_quote(body, folder_url):
+    """Append one row per saved quote. Never raises into the save path."""
+    from datetime import date
+    jd = body.get("job_data") or {}
+    internal = body.get("internal") or {}
+    summ = internal.get("summary") or {}
+    lane = "Proposal (range)" if jd.get("mode") == "range" else "Quote (fixed)"
+    sell_ex = summ.get("sell_ex_gst") or 0
+    if jd.get("mode") == "fixed":
+        total_inc = (jd.get("fixed") or {}).get("total_inc_gst") or 0
+    else:
+        total_inc = round(float(sell_ex) * 1.1) if sell_ex else 0
+    extras_inc = sum(float(x.get("sell_inc") or 0) for x in internal.get("optional_extras") or [])
+    row = [date.today().isoformat(), jd.get("client_name") or "", jd.get("location") or "", lane,
+           total_inc, sell_ex, summ.get("total_cost") or 0, summ.get("gp") or 0,
+           summ.get("gp_pct") or 0, summ.get("gp_per_install_day") or "",
+           summ.get("labour_days") or "", extras_inc, "Sent", folder_url or ""]
+    drive = build("drive", "v3", credentials=_creds(), cache_discovery=False)
+    sheets = build("sheets", "v4", credentials=_creds(), cache_discovery=False)
+    sid = _quote_log_id(drive, sheets)
+    sheets.spreadsheets().values().append(
+        spreadsheetId=sid, range="Log!A1", valueInputOption="USER_ENTERED",
+        insertDataOption="INSERT_ROWS", body={"values": [row]}).execute()
 
 
 # ── image library (shared bank of reusable images, lives in Drive) ──────────
