@@ -63,6 +63,13 @@ internal-costing.json, site photos). Deploys to **quote.enduredecks.com.au**.
   pipeline/conversion/GP formulas). Status column (Sent/Won/Lost) is updated
   by hand as jobs land — that drives the conversion metrics. Best-effort:
   a log failure never fails the save (resp.logged flags it in the UI).
+- Project library (2026-07-30): "Save project" files the stripped builder
+  state as JSON into "_Project Drafts" in Incoming Jobs (same name =
+  overwrite); Library → Saved projects lists by name + modified date and
+  loads via the endureBuilderDraft + reload path. Save to Drive also files
+  the rendered client PDF into the job folder now.
+- Header bar (2026-07-30): sticky black topbar — logo, Build / Library /
+  Contracts & templates dropdowns, Save project button.
 - Drive-backed image library: "_Image Library" folder in Incoming Jobs,
   actions img_lib_list/get/put, overlay picker on hero/recipe/concept images.
 
