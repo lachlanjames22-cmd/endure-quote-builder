@@ -27,6 +27,9 @@ Both share: Cover, Approach, Finance (HandyPay), Project Run. They diverge on Co
 - `your_project` — hero page: `summary_line`, `project_items[]` (`{label, image, price_inc_gst?, spec_label, description, bullets[]}`), `zones[]` (`{name, sub, body}`), `footnote`. One item renders as a single full-size card (the original Pantons look); 2+ items each get their own compact card, stacked on the page. `price_inc_gst` per item is optional — leave it out if the job is genuinely one all-up price shown only via `cost_lines`/`total_inc_gst` below. (Legacy: a flat `{image, price_inc_gst, spec_label, description, bullets}` directly on `your_project` — no `project_items` — is still accepted and treated as a single item, for backwards compatibility with older saved job data.)
 - `package_label`, `cost_lines[]` (`{label, desc, amount}`), `subtotal_ex_gst`, `total_inc_gst`, `included`, `excluded`, `deposit_pct`.
 
+## Optional extras — `optional_extras` (top level, both modes)
+Optional list of upsells: `[{label, desc, price_inc_gst}]`. Renders as tickable "Optional upgrades — tick to add" cards on the approval page (both modes), priced individually and NEVER included in the project totals. The builder works each extra's cost/labour/margin ex GST internally; only the inc-GST sell price reaches job-data. The internal costing payload carries the full breakdown in its own `optional_extras` (with `gp_pct`), excluded from budget totals.
+
 ## Shared: `finance` and `project_run` blocks
 
 - `finance`: `wk_low`, `wk_high`, `rows[]` (`{label, sub, wk3, wk5, wk7}`).

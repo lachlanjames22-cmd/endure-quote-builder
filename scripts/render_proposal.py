@@ -449,6 +449,21 @@ def pages_cost_range(d, n, status_label):
 {foot(n+1)}</div></div>'''
     return [page1, page2]
 
+def optional_extras_html(d):
+    """Tickable upsell cards for d['optional_extras'] — priced individually,
+    never part of the project total. Renders on both approval pages."""
+    xs = d.get('optional_extras') or []
+    if not xs:
+        return ''
+    cards = ''.join(
+        f'<div class="appr-card"><div class="cbx">&#9744;</div><div><div class="nm">{x["label"]}</div>'
+        f'<div class="pr">{x.get("desc","")} &middot; + {fmt_money(x["price_inc_gst"])} inc GST</div></div></div>'
+        for x in xs)
+    return ('<div style="font-family:\'EB Garamond\',Georgia,serif;font-weight:600;font-size:12.5pt;margin-top:3mm;">'
+            'Optional upgrades &mdash; tick to add</div>'
+            f'<div class="appr-cards">{cards}</div>')
+
+
 def page_approval_range(d, n, status_label):
     r = d['range']
     consult_fee = r.get('consult_fee_paid', 0)
@@ -483,6 +498,7 @@ def page_approval_range(d, n, status_label):
     {option_check_cards}
     {alt_check_cards}
   </div>
+  {optional_extras_html(d)}
   <div class="ds-h">Next step &middot; design service</div>
   <div class="ds-sub">Choose one. This purchase is separate from the build and moves you to a fixed price.</div>
   <div class="ds-cards">{tier_cards}</div>
@@ -621,6 +637,7 @@ def page_approval_fixed(d, n, status_label):
     <div class="pr">{fmt_money(fx["total_inc_gst"], 2)} inc GST</div></div></div>
     {handypay_card}
   </div>
+  {optional_extras_html(d)}
   <div class="accept-block"><div class="paper-tick">&#9744;</div><div class="accept-text">I accept the project above and instruct Endure to proceed on payment of the {fx["deposit_pct"]}% deposit.</div></div>
   <div class="sign-grid">
     <div><div class="sign-label">Client Name</div><div class="sign-line"></div></div>

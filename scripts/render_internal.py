@@ -204,6 +204,18 @@ def render(internal, job_data, out_pdf):
       <div class="cell"><div class="lab">Net retained</div><div class="val">{money(num(summary.get("net_retained")))}</div></div>
     </div>"""
 
+    xs = internal.get("optional_extras") or []
+    extras_html = ""
+    if xs:
+        xrows = "".join(
+            f'<tr><td>{esc(x.get("label"))}</td><td class="r">{money(num(x.get("cost_ex")), 2)}</td>'
+            f'<td class="r">{money(num(x.get("margin_ex")), 2)}</td><td class="r">{money(num(x.get("sell_inc")), 2)}</td>'
+            f'<td class="r">{num(x.get("gp_pct")):.1f}%</td></tr>'
+            for x in xs)
+        extras_html = ('<div class="h">Optional upsells offered (not in totals — awaiting client tick)</div>'
+                       '<table><tr><th>Extra</th><th class="r">Cost ex</th><th class="r">Margin ex</th>'
+                       f'<th class="r">Client price inc</th><th class="r">GP%</th></tr>{xrows}</table>')
+
     warns, notes, recon = build_watch(summary, targets, passes, job_data, internal.get("sell_override"))
     watch_html = ""
     if warns or notes:
@@ -241,6 +253,7 @@ def render(internal, job_data, out_pdf):
       {lab_html}
       <div class="h">Fixed costs &amp; pass-throughs</div>
       {pass_html}
+      {extras_html}
       {strip}
       {watch_html}
       {opts_html}

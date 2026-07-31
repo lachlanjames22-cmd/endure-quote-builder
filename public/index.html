@@ -690,6 +690,23 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
     </div>
   </div>
 
+  <!-- OPTIONAL EXTRAS / UPGRADES (all lanes — tickable on the approval page, NOT in the quote total) -->
+  <div class="card" id="extrasCard">
+    <h2>Optional extras &amp; upgrades</h2>
+    <p class="desc">Upsells the client can tick on the <strong>Next step</strong> page — priced individually, <strong>never counted in the project total</strong>. Work the numbers ex GST like everywhere else; the card shows the client the inc-GST price. Save regulars to the library and reuse them with tweaked numbers on any job.</p>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+      <select id="xtr_lib" style="width:auto;max-width:280px;" onchange="addExtraFromLib(this.value)"></select>
+      <button class="add-btn" style="margin-top:0;" onclick="addExtraRow()">+ Add extra</button>
+    </div>
+    <table class="rep"><thead><tr>
+      <th style="width:16%">Item</th><th style="width:18%">Detail (client sees)</th>
+      <th style="width:7%">Qty</th><th style="width:9%">Unit $ <span style="font-weight:400;">ex</span></th>
+      <th style="width:9%">Cost $ <span style="font-weight:400;">ex</span></th><th style="width:9%">Labour $ <span style="font-weight:400;">ex</span></th>
+      <th style="width:8%">Margin %</th><th style="width:13%">Client price</th><th style="width:8%"></th>
+    </tr></thead><tbody id="extrasBody"></tbody></table>
+    <div class="totals-strip" id="extrasTotals" style="margin-top:8px;"></div>
+  </div>
+
   <!-- SITE SKETCH -->
   <div class="card" id="sketchCard">
     <h2>Site sketch</h2>
@@ -965,6 +982,7 @@ function defaultState(){
     ex: {type:'Stairs', custom:'', qty:'', rateOv:null, costOv:null, labour:'', margin:''},
     ed: {extras:[], editingName:null, origBoard:null},
     rec:null, recipeLib:[],
+    extras:[], extrasLib:[],
     calcTab:'deck',
     bundles: [],
     icAuto: true,
@@ -1613,8 +1631,10 @@ function mEdit(i,k,v){
 function renderManual(){
   const wrap=document.getElementById('manualWrap'); if(!wrap) return;
   if(S.manualOnly) S.manualShow=true;
+  // The manual grid is now Manual-mode only — optional extras cover ad-hoc items on the other lanes
+  const card=document.getElementById('manualCard'); if(card) card.classList.toggle('hidden', !S.manualOnly);
   const cb=document.getElementById('manualShowCb'); if(cb) cb.checked=!!S.manualShow;
-  const row=document.getElementById('manualToggleRow'); if(row) row.classList.toggle('hidden', !!S.manualOnly);
+  const row=document.getElementById('manualToggleRow'); if(row) row.classList.add('hidden');
   wrap.classList.toggle('hidden', !S.manualShow);
   const title=document.getElementById('manualTitle');
   if(title) title.textContent = S.manualOnly ? 'Build the quote — line by line' : 'Manual line items';
@@ -1746,7 +1766,8 @@ function syncRecipeInputs(){
   setVal('rec_img_custom', S.rec.imgCustom);
   const w=document.getElementById('rec_img_wrap');
   if(w) w.innerHTML = materialSelect(S.rec.imgSel, "S.rec.imgSel=this.value; renderRecipeImgToggle();")
-    + uploadThumbHtml(S.rec.imgUpload, "S.rec.imgUpload=null; syncRecipeInputs();", "recImgPicked(this)");
+    + uploadThumbHtml(S.rec.imgUpload, "S.rec.imgUpload=null; syncRecipeInputs();", "recImgPicked(this)",
+        "imgLibOpen(function(d){S.rec.imgUpload=d; syncRecipeInputs();})");
   renderRecipeImgToggle();
   const rp=document.getElementById('rec_mm_pct'), rd=document.getElementById('rec_mm_day');
   if(rp) rp.checked = S.rec.marginMode!=='day';
@@ -1851,7 +1872,7 @@ function cancelRecipeEdit(){ S.rec = blankRecipe(); renderRecipe(); }
 
 
 function exportSetup(){
-  const setup = {endure_setup_version:1, exported:new Date().toISOString(), rc:S.rc, materials:MATERIALS, recipes:S.recipeLib||[]};
+  const setup = {endure_setup_version:1, exported:new Date().toISOString(), rc:S.rc, materials:MATERIALS, recipes:S.recipeLib||[], extras_lib:S.extrasLib||[]};
   const txt = JSON.stringify(setup, null, 2);
   try{
     const blob = new Blob([txt], {type:'application/json'});
@@ -1873,6 +1894,7 @@ function importSetup(){
     if(!s.rc) throw new Error('not an Endure setup file');
     S.rc = s.rc;
     if(Array.isArray(s.recipes)) S.recipeLib = s.recipes;
+    if(Array.isArray(s.extras_lib)) S.extrasLib = s.extras_lib;
     renderRates(); renderQC(); renderRecipeLib(); refresh();
     document.getElementById('setup_import').classList.add('hidden');
     document.getElementById('statusLine').className='status-line ok';
@@ -1928,7 +1950,7 @@ function renderBundles(){
       ${b.isHero?`<div class="grid3" style="margin-top:8px;">
         <div class="field" style="margin:0;"><label>Photo</label>${materialSelect(b.imgSel, "S.bundles["+i+"].imgSel=this.value; renderBundles(); refresh();")}
           ${b.imgSel===CUSTOM?`<input type="text" class="custom-inp" placeholder="Image filename" value="${escA(b.imgCustom)}" oninput="S.bundles[${i}].imgCustom=this.value">`:''}
-          ${uploadThumbHtml(b.imgUpload, `S.bundles[${i}].imgUpload=null; renderBundles(); refresh();`, `heroImgPicked(this, ${i})`)}</div>
+          ${uploadThumbHtml(b.imgUpload, `S.bundles[${i}].imgUpload=null; renderBundles(); refresh();`, `heroImgPicked(this, ${i})`, `imgLibOpen(function(d){S.bundles[${i}].imgUpload=d; renderBundles(); refresh();})`)}</div>
         <div class="field" style="margin:0;"><label>Price override (inc GST)</label><input type="number" placeholder="auto ${price}" value="${escA(b.price_ov)}" oninput="S.bundles[${i}].price_ov=this.value"></div>
         <div class="field" style="margin:0;"><label>Spec line override</label><input type="text" placeholder="(auto from first line)" value="${escA(b.spec_ov)}" oninput="S.bundles[${i}].spec_ov=this.value"></div>
         <div class="field" style="grid-column:1/3;margin:0;"><label>Description override</label><input type="text" placeholder="${escA(heroDesc(b))}" value="${escA(b.desc_ov)}" oninput="S.bundles[${i}].desc_ov=this.value"></div>
@@ -2282,6 +2304,10 @@ function pvApproval(n){
     ${stepperHtml()}
     <div style="font-family:'EB Garamond',Georgia,serif;font-weight:600;font-size:12.5pt;margin-top:3mm;">Your project</div>
     <div class="appr-cards">${projectCards}</div>
+    ${(function(){ const xs=clientExtras(); if(!xs.length) return '';
+      return '<div style="font-family:\'EB Garamond\',Georgia,serif;font-weight:600;font-size:12.5pt;margin-top:3mm;">Optional upgrades — tick to add</div><div class="appr-cards">'
+        + xs.map(function(x){ return '<div class="appr-card"><div class="cbx">☐</div><div><div class="nm">'+esc(x.label)+'</div><div class="pr">'+esc(x.desc)+' · + '+fmt$(x.price_inc_gst)+' inc GST</div></div></div>'; }).join('')
+        + '</div>'; })()}
     ${extra}
     <div class="accept-block"><div class="paper-tick">☐</div><div class="accept-text">${acceptText}</div></div>
     <div class="sign-grid">
@@ -2519,6 +2545,12 @@ function pvInternal(){
       <tr><td colspan="4" style="font-weight:700;">Labour total (${t.labDays} days)</td><td class="r" style="font-weight:700;">${fmt$2(t.labT)}</td></tr></table>
       <div class="ic-h">Pass-throughs</div>
       <table class="ic-table"><tr><th>Label</th><th>Type</th><th>Our cost</th><th>Margin</th><th>Client charge</th></tr>${passRows||'<tr><td colspan="5">—</td></tr>'}</table>
+      ${(function(){ const xs=extrasList().filter(function(x){return x.label;}); if(!xs.length) return '';
+        return '<div class="ic-h">Optional upsells offered (NOT in totals — client hasn’t ticked yet)</div>'
+          +'<table class="ic-table"><tr><th>Extra</th><th>Cost ex</th><th>Margin ex</th><th>Client price inc</th><th>GP%</th></tr>'
+          + xs.map(function(x){ const cost=(Number(x.cost)||0)+(Number(x.labour)||0), se=extraSellEx(x);
+            return '<tr><td>'+esc(x.label)+'</td><td class="r">'+fmt$2(cost)+'</td><td class="r">'+fmt$2(Number(x.margin)||0)+'</td><td class="r">'+fmt$2(extraSellInc(x))+'</td><td class="r">'+(se>0?(100*(se-cost)/se).toFixed(1):'0')+'%</td></tr>'; }).join('')
+          +'</table>'; })()}
       <div class="ic-sum">
         <div class="cell"><div class="lab">Materials</div><div class="val">${fmt$(t.matT)}${t.matM2!==null?' <span style="font-size:7.5pt;color:#666;">· '+fmt$(t.matM2)+'/m²</span>':''}</div></div>
         <div class="cell"><div class="lab">Labour</div><div class="val">${fmt$(t.labT)}${t.labM2!==null?' <span style="font-size:7.5pt;color:#666;">· '+fmt$(t.labM2)+'/m²</span>':''}</div></div>
@@ -2733,6 +2765,8 @@ function restore(){
     S.include = Object.assign({approach:true, finance:true, project_run:true, concept:false}, saved.include||{});
     S.concept = Object.assign({pages:[]}, saved.concept||{});
     if(!Array.isArray(S.recipeLib)) S.recipeLib = [];
+    if(!Array.isArray(S.extras)) S.extras = [];
+    if(!Array.isArray(S.extrasLib)) S.extrasLib = [];
     S.rec = saved.rec ? Object.assign(blankRecipe(), saved.rec) : null;
     if(!Array.isArray(S.concept.pages)) S.concept.pages=[];
     if(!Array.isArray(S.fixedCosts) || !S.fixedCosts.length) S.fixedCosts = def.fixedCosts;
@@ -2761,8 +2795,9 @@ function resetForm(){
   _resetArmed = null;
   const keepRc = JSON.parse(JSON.stringify(S.rc));
   const keepLib = JSON.parse(JSON.stringify(S.recipeLib||[]));
+  const keepXLib = JSON.parse(JSON.stringify(S.extrasLib||[]));
   LSTORE.removeItem('endureBuilderDraft');
-  S = defaultState(); S.rc=keepRc; S.recipeLib=keepLib;
+  S = defaultState(); S.rc=keepRc; S.recipeLib=keepLib; S.extrasLib=keepXLib;
   FIELD_IDS.forEach(function(id){ setVal(id,''); });
   setVal('fx_deposit_pct',5); setVal('consult_fee_paid',0);
   setVal('proposal_date', new Date().toISOString().slice(0,10));
@@ -2825,6 +2860,11 @@ function buildInternalPayload(t, clientName){
       gp_per_install_day: t.gpPerDay!==null?+t.gpPerDay.toFixed(0):null,
       net_retained:+t.net.toFixed(2)},
     targets: {gp_pct_min:35, gp_per_day_goal:Number(S.rc.gp_target)||1500},
+    optional_extras: extrasList().filter(function(x){return x.label;}).map(function(x){
+      const cost=(Number(x.cost)||0)+(Number(x.labour)||0), sellEx=extraSellEx(x);
+      return {label:x.label, cost_ex:cost, margin_ex:Number(x.margin)||0, sell_ex:sellEx,
+              sell_inc:extraSellInc(x), gp_pct: sellEx>0?+(100*(sellEx-cost)/sellEx).toFixed(1):0};
+    }),
     attachments: S.ic.attachments.map(function(a){return a.name;})
   };
 }
@@ -2843,6 +2883,8 @@ function buildJobData(clientName){
     project_run:{ lead:val('pr_lead'), steps:S.steps.filter(s=>s.title),
       payment_schedule:S.paymentSchedule.filter(p=>p.label).map(function(p){ return {pct:Number(p.pct)||0,label:p.label}; }) }
   };
+  const xs = clientExtras();
+  if(xs.length) data.optional_extras = xs;
   const cpPages = conceptPages().filter(function(p){return (p.images||[]).length;});
   if(S.include.concept && cpPages.length){
     data.concept = {pages: cpPages.map(function(p){
@@ -2937,6 +2979,93 @@ async function generatePdf(){
   btn.disabled=false;
 }
 
+// ---------------- optional extras / upgrades (tickable on approval, never in the total) ----------------
+function extrasList(){ if(!Array.isArray(S.extras)) S.extras=[]; return S.extras; }
+function extraSellEx(x){ return (Number(x.cost)||0)+(Number(x.labour)||0)+(Number(x.margin)||0); }
+function extraSellInc(x){ return Math.round(extraSellEx(x)*1.1); }
+function extraSyncMargin(x){
+  const p = Number(x.mpct);
+  const base = (Number(x.cost)||0)+(Number(x.labour)||0);
+  if(!isNaN(p) && p>0 && p<95) x.margin = Math.round(base*p/(100-p));
+  else if(String(x.mpct)==='' || Number(x.mpct)===0) x.margin = 0;
+}
+function addExtraRow(seed){
+  extrasList().push(Object.assign({label:'', desc:'', qty:'', unit:'', cost:'', labour:'',
+    mpct:(Number(S.rc.margin_pct_default)||35), margin:0}, seed||{}));
+  const x = extrasList()[extrasList().length-1];
+  extraSyncMargin(x);
+  renderExtras(); refresh();
+}
+function xtrEdit(i,k,v){
+  const x = extrasList()[i]; if(!x) return;
+  x[k]=v;
+  if(k==='qty'||k==='unit'){
+    if(String(x.qty)!=='' && String(x.unit)!==''){
+      x.cost = Math.round((Number(x.qty)||0)*(Number(x.unit)||0)*100)/100;
+      const el=document.getElementById('xtr_cost_'+i);
+      if(el && document.activeElement!==el) el.value=x.cost;
+    }
+  }
+  if(k==='qty'||k==='unit'||k==='cost'||k==='labour'||k==='mpct') extraSyncMargin(x);
+  const sellEl=document.getElementById('xtr_sell_'+i); if(sellEl) sellEl.textContent=fmt$(extraSellInc(x));
+  renderExtrasTotals(); refresh();
+}
+function renderExtras(){
+  const el=document.getElementById('extrasBody'); if(!el) return;
+  el.innerHTML = extrasList().map(function(x,i){
+    return `<tr>
+      <td><input type="text" value="${escA(x.label)}" oninput="xtrEdit(${i},'label',this.value)" placeholder="e.g. LED lighting package"></td>
+      <td><input type="text" value="${escA(x.desc||'')}" oninput="xtrEdit(${i},'desc',this.value)" placeholder="Supply & install"></td>
+      <td><input type="number" value="${escA(x.qty)}" oninput="xtrEdit(${i},'qty',this.value)"></td>
+      <td><input type="number" value="${escA(x.unit)}" oninput="xtrEdit(${i},'unit',this.value)"></td>
+      <td><input type="number" id="xtr_cost_${i}" value="${escA(x.cost)}" oninput="xtrEdit(${i},'cost',this.value)"></td>
+      <td><input type="number" value="${escA(x.labour)}" oninput="xtrEdit(${i},'labour',this.value)"></td>
+      <td><input type="number" value="${escA(x.mpct)}" oninput="xtrEdit(${i},'mpct',this.value)"></td>
+      <td style="padding-top:9px;font-weight:600;"><span id="xtr_sell_${i}">${fmt$(extraSellInc(x))}</span> <span style="font-weight:400;color:var(--grey);font-size:10px;">inc GST</span></td>
+      <td style="white-space:nowrap;"><button class="rm-btn" title="Save to library" onclick="saveExtraToLib(${i})">⭳</button>
+        <button class="rm-btn" onclick="extrasList().splice(${i},1); renderExtras(); refresh();">✕</button></td>
+    </tr>`; }).join('');
+  renderExtrasLib();
+  renderExtrasTotals();
+}
+function renderExtrasTotals(){
+  const el=document.getElementById('extrasTotals'); if(!el) return;
+  const ls=extrasList().filter(function(x){return x.label;});
+  if(!ls.length){ el.innerHTML=''; return; }
+  const cost=ls.reduce(function(a,x){return a+(Number(x.cost)||0)+(Number(x.labour)||0);},0);
+  const mg=ls.reduce(function(a,x){return a+(Number(x.margin)||0);},0);
+  const inc=ls.reduce(function(a,x){return a+extraSellInc(x);},0);
+  el.innerHTML = '<div><div class="t-lab">Extras offered</div><div class="t-val">'+ls.length+'</div></div>'
+    +'<div><div class="t-lab">Cost ex GST</div><div class="t-val">'+fmt$(cost)+'</div></div>'
+    +'<div><div class="t-lab">Margin ex GST</div><div class="t-val">'+fmt$(mg)+'</div></div>'
+    +'<div><div class="t-lab">Upsell value inc GST (if all ticked)</div><div class="t-val big">'+fmt$(inc)+'</div></div>';
+}
+function renderExtrasLib(){
+  const el=document.getElementById('xtr_lib'); if(!el) return;
+  if(!Array.isArray(S.extrasLib)) S.extrasLib=[];
+  el.innerHTML = '<option value="">— extras library ('+S.extrasLib.length+') —</option>'
+    + S.extrasLib.map(function(x,i){ return '<option value="'+i+'">'+esc(x.label)+' — '+fmt$(extraSellInc(x))+'</option>'; }).join('');
+}
+function addExtraFromLib(idx){
+  if(idx==='') return;
+  const x = S.extrasLib[Number(idx)];
+  if(x) addExtraRow(JSON.parse(JSON.stringify(x)));
+  const el=document.getElementById('xtr_lib'); if(el) el.value='';
+}
+function saveExtraToLib(i){
+  const x = extrasList()[i];
+  if(!x || !x.label){ notify('Give the extra a name first.'); return; }
+  const entry = JSON.parse(JSON.stringify(x));
+  const j = S.extrasLib.findIndex(function(e){return e.label===entry.label;});
+  if(j>=0) S.extrasLib[j]=entry; else S.extrasLib.push(entry);
+  renderExtrasLib();
+  notify('"'+x.label+'" saved to the extras library — survives New job, exports with the setup file.');
+}
+function clientExtras(){
+  return extrasList().filter(function(x){return x.label && extraSellInc(x)>0;})
+    .map(function(x){ return {label:x.label, desc:x.desc||'Supply & install', price_inc_gst:extraSellInc(x)}; });
+}
+
 // Shared: read + compress an image file to a JPEG data URL (keeps requests and
 // localStorage drafts small). cb(dataUrl).
 function compressImageFile(f, maxW, q, cb){
@@ -2969,10 +3098,85 @@ function recImgPicked(input){
   });
   input.value='';
 }
-function uploadThumbHtml(dataUrl, clearJs, pickJs){
+function uploadThumbHtml(dataUrl, clearJs, pickJs, libJs){
   return dataUrl
     ? '<div style="margin-top:4px;"><img src="'+dataUrl+'" style="height:32px;border-radius:4px;border:1px solid var(--rule);vertical-align:middle;"> <span style="font-size:10.5px;color:var(--grey);">uploaded — used instead of the pick above</span> <button class="rm-btn" onclick="'+clearJs+'">✕</button></div>'
-    : '<label class="sk-btn" style="cursor:pointer;display:inline-block;margin-top:4px;font-size:10.5px;padding:3px 8px;">📤 or upload an image<input type="file" accept="image/*" style="display:none" onchange="'+pickJs+'"></label>';
+    : '<span style="display:inline-block;margin-top:4px;"><label class="sk-btn" style="cursor:pointer;font-size:10.5px;padding:3px 8px;">📤 or upload an image<input type="file" accept="image/*" style="display:none" onchange="'+pickJs+'"></label>'
+      + (libJs?' <button class="sk-btn" style="font-size:10.5px;padding:3px 8px;" onclick="'+libJs+'">📚 from library</button>':'')+'</span>';
+}
+
+// ---------------- image library (Drive-backed — shared bank, add once, reuse anywhere) ----------------
+const IMG_LIB_CACHE = {};
+let imgLibPickCb = null;
+function imgLibAvailable(){ return !hasCowork() && ENDURE_ENDPOINT !== 'PASTE_WEBAPP_URL_HERE'; }
+async function imgLibFetch(id){
+  if(IMG_LIB_CACHE[id]) return IMG_LIB_CACHE[id];
+  const r = await hostedPost({action:'img_lib_get', id:id});
+  if(!r || !r.ok) throw new Error((r&&r.error)||'image fetch failed');
+  const d = 'data:'+(r.mime||'image/jpeg')+';base64,'+r.b64;
+  IMG_LIB_CACHE[id]=d;
+  return d;
+}
+function imgLibClose(){ const ov=document.getElementById('imgLibOverlay'); if(ov) ov.remove(); imgLibPickCb=null; }
+async function imgLibOpen(cb){
+  if(!imgLibAvailable()){ notify('The image library needs the hosted tool (it lives in Drive).'); return; }
+  imgLibPickCb = cb;
+  imgLibClose();
+  const ov=document.createElement('div');
+  ov.id='imgLibOverlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(26,24,21,.55);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;';
+  ov.innerHTML = '<div style="background:#fff;border-radius:10px;max-width:720px;width:100%;max-height:80vh;overflow:auto;padding:16px;">'
+    +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">'
+    +'<h2 style="margin:0;font-size:15px;">Image library</h2>'
+    +'<label class="sk-btn" style="cursor:pointer;">⬆ Add to library<input type="file" accept="image/*" multiple style="display:none" onchange="imgLibUpload(this)"></label>'
+    +'<span style="flex:1;"></span><button class="sk-btn" onclick="imgLibClose()">✕ close</button></div>'
+    +'<div id="imgLibGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;">'
+    +'<span style="color:var(--grey);font-size:12px;">Loading…</span></div></div>';
+  ov.addEventListener('click', function(e){ if(e.target===ov) imgLibClose(); });
+  document.body.appendChild(ov);
+  try{
+    const r = await hostedPost({action:'img_lib_list'});
+    if(!r || !r.ok) throw new Error((r&&r.error)||'list failed');
+    renderImgLibGrid(r.images||[]);
+  }catch(e){
+    const g=document.getElementById('imgLibGrid');
+    if(g) g.innerHTML='<span style="color:var(--red);font-size:12px;">Library failed: '+esc(e.message)+'</span>';
+  }
+}
+function renderImgLibGrid(images){
+  const g=document.getElementById('imgLibGrid'); if(!g) return;
+  if(!images.length){ g.innerHTML='<span style="color:var(--grey);font-size:12px;">Empty — hit "⬆ Add to library" to start the bank. Images are shared: add once, use on any job, any device.</span>'; return; }
+  g.innerHTML = images.map(function(im,i){
+    return '<div class="imgLibCell" data-id="'+escA(im.id)+'" style="border:1px solid var(--rule);border-radius:6px;padding:6px;cursor:pointer;text-align:center;" onclick="imgLibPick(\''+escA(im.id)+'\')">'
+      +'<div id="imlib_'+i+'" style="height:80px;display:flex;align-items:center;justify-content:center;background:var(--cream);border-radius:4px;font-size:10px;color:var(--grey);">…</div>'
+      +'<div style="font-size:10.5px;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(im.name)+'</div></div>';
+  }).join('');
+  images.forEach(function(im,i){
+    imgLibFetch(im.id).then(function(d){
+      const cell=document.getElementById('imlib_'+i);
+      if(cell) cell.innerHTML='<img src="'+d+'" style="max-height:80px;max-width:100%;border-radius:4px;">';
+    }).catch(function(){});
+  });
+}
+async function imgLibPick(id){
+  try{
+    const d = await imgLibFetch(id);
+    if(imgLibPickCb) imgLibPickCb(d);
+    imgLibClose();
+  }catch(e){ notify('Could not load that image: '+e.message); }
+}
+function imgLibUpload(input){
+  Array.from(input.files||[]).forEach(function(f){
+    compressImageFile(f, 1600, 0.85, async function(dataUrl){
+      try{
+        const r = await hostedPost({action:'img_lib_put', name:f.name.replace(/\.[^.]+$/,'')+'.jpg', mime:'image/jpeg', b64:dataUrl.split(',')[1]});
+        if(!r || !r.ok) throw new Error((r&&r.error)||'upload failed');
+        const l = await hostedPost({action:'img_lib_list'});
+        if(l && l.ok) renderImgLibGrid(l.images||[]);
+      }catch(e){ notify('Library upload failed: '+e.message); }
+    });
+  });
+  input.value='';
 }
 
 // ---------------- concept pages (one document page each: single / 2-grid / 4-grid) ----------------
@@ -3031,6 +3235,7 @@ function renderConcept(){
       +'<option value="2"'+(Number(p.layout)===2?' selected':'')+'>2-grid</option>'
       +'<option value="4"'+(Number(p.layout)===4?' selected':'')+'>4-grid</option></select>'
       +(room?'<label class="sk-btn" style="cursor:pointer;">🖼 Add image<input type="file" accept="image/*" multiple style="display:none" onchange="conceptPicked(this,'+pi+')"></label>'
+            +'<button class="sk-btn" onclick="imgLibOpen(function(d){var pg=conceptPages()['+pi+']; if(pg && pg.images.length<Number(pg.layout)) pg.images.push({image:d, caption:\'\'}); renderConcept(); refresh();})">📚 library</button>'
             :'<span style="font-size:11px;color:var(--green);">● full</span>')
       +'<span style="flex:1;"></span>'
       +'<button class="rm-btn" onclick="conceptMovePage('+pi+',-1)" title="Move up">↑</button>'
@@ -3308,6 +3513,7 @@ setMode(S.manualOnly ? 'manual' : S.mode);
 initSketch();
 renderConcept();
 renderRecipe(); renderRecipeLib();
+renderExtras();
 syncFinanceInputs();
 refresh();
 loadHostedRates();

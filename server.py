@@ -83,6 +83,12 @@ async def endure_post(request: Request):
             return render_pdf(body)
         if action == "render_internal":
             return render_internal_pdf(body)
+        if action == "img_lib_list":
+            return JSONResponse(img_lib_list())
+        if action == "img_lib_get":
+            return JSONResponse(img_lib_get(body))
+        if action == "img_lib_put":
+            return JSONResponse(img_lib_put(body))
     except Exception as e:  # noqa: BLE001
         return bad(e)
     return bad("unknown action")
@@ -191,6 +197,57 @@ def render_pdf(body):
             pass  # PDF still returns to the browser even if Drive filing fails
     return Response(content=pdf_bytes, media_type="application/pdf",
                     headers={"Content-Disposition": f'attachment; filename="{slug}_Proposal.pdf"'})
+
+
+# ── image library (shared bank of reusable images, lives in Drive) ──────────
+IMG_LIB_NAME = "_Image Library"
+
+
+def _img_lib_folder(drive):
+    q = (f"'{JOBS}' in parents and name = '{IMG_LIB_NAME}' "
+         "and mimeType = 'application/vnd.google-apps.folder' and trashed = false")
+    res = drive.files().list(q=q, fields="files(id)", supportsAllDrives=True,
+                             includeItemsFromAllDrives=True, corpora="allDrives").execute()
+    hits = res.get("files", [])
+    if hits:
+        return hits[0]["id"]
+    made = drive.files().create(
+        body={"name": IMG_LIB_NAME, "mimeType": "application/vnd.google-apps.folder", "parents": [JOBS]},
+        fields="id", supportsAllDrives=True).execute()
+    return made["id"]
+
+
+def img_lib_list():
+    drive = build("drive", "v3", credentials=_creds(), cache_discovery=False)
+    folder = _img_lib_folder(drive)
+    res = drive.files().list(
+        q=f"'{folder}' in parents and trashed = false and mimeType contains 'image/'",
+        fields="files(id, name, mimeType)", orderBy="name", pageSize=200,
+        supportsAllDrives=True, includeItemsFromAllDrives=True, corpora="allDrives").execute()
+    return {"ok": True, "images": res.get("files", [])}
+
+
+def img_lib_get(body):
+    file_id = body.get("id")
+    if not file_id:
+        return {"ok": False, "error": "id required"}
+    drive = build("drive", "v3", credentials=_creds(), cache_discovery=False)
+    meta = drive.files().get(fileId=file_id, fields="mimeType", supportsAllDrives=True).execute()
+    data = drive.files().get_media(fileId=file_id).execute()
+    return {"ok": True, "mime": meta.get("mimeType") or "image/jpeg",
+            "b64": base64.b64encode(data).decode()}
+
+
+def img_lib_put(body):
+    name, b64 = body.get("name"), body.get("b64")
+    if not name or not b64:
+        return {"ok": False, "error": "name and b64 required"}
+    drive = build("drive", "v3", credentials=_creds(), cache_discovery=False)
+    folder = _img_lib_folder(drive)
+    media = MediaIoBaseUpload(io.BytesIO(base64.b64decode(b64)), mimetype=body.get("mime") or "image/jpeg")
+    made = drive.files().create(body={"name": name, "parents": [folder]}, media_body=media,
+                                fields="id, name", supportsAllDrives=True).execute()
+    return {"ok": True, "image": {"id": made["id"], "name": made["name"]}}
 
 
 # ── render internal (PM-only Job Budget — never for clients) ────────────────
