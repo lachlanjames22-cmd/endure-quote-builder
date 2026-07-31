@@ -83,6 +83,12 @@ async def endure_post(request: Request):
             return render_pdf(body)
         if action == "render_internal":
             return render_internal_pdf(body)
+        if action == "draft_save":
+            return JSONResponse(draft_save(body))
+        if action == "draft_list":
+            return JSONResponse(draft_list())
+        if action == "draft_get":
+            return JSONResponse(draft_get(body))
         if action == "img_lib_list":
             return JSONResponse(img_lib_list())
         if action == "img_lib_get":
@@ -168,6 +174,19 @@ def save_job(body):
         media = MediaIoBaseUpload(io.BytesIO(base64.b64decode(a["b64"])), mimetype=a.get("mime") or "image/jpeg")
         drive.files().create(body={"name": a["name"], "parents": [folder["id"]]},
                              media_body=media, supportsAllDrives=True).execute()
+    try:  # also file the final client PDF into the folder — the CEO/paper trail
+        jd = body.get("job_data") or {}
+        client = (jd.get("client_name") or "Client").strip()
+        slug = re.sub(r"[^A-Za-z0-9]+", "_", client).strip("_") or "Client"
+        doc_name = f"{slug}_{'Proposal' if jd.get('mode') == 'range' else 'Quote'}.pdf"
+        with tempfile.TemporaryDirectory() as td:
+            out_pdf = os.path.join(td, doc_name)
+            render_proposal.render(jd, out_pdf)
+            media = MediaIoBaseUpload(io.BytesIO(open(out_pdf, "rb").read()), mimetype="application/pdf")
+            drive.files().create(body={"name": doc_name, "parents": [folder["id"]]},
+                                 media_body=media, supportsAllDrives=True).execute()
+    except Exception:  # noqa: BLE001
+        pass
     logged = False
     try:  # quote-log append is best-effort — a log hiccup must never fail the save
         log_quote(body, folder.get("webViewLink"))
@@ -203,6 +222,65 @@ def render_pdf(body):
             pass  # PDF still returns to the browser even if Drive filing fails
     return Response(content=pdf_bytes, media_type="application/pdf",
                     headers={"Content-Disposition": f'attachment; filename="{slug}_Proposal.pdf"'})
+
+
+# ── project drafts (named work-in-progress saves, live in Drive) ────────────
+DRAFTS_NAME = "_Project Drafts"
+
+
+def _drafts_folder(drive):
+    q = (f"'{JOBS}' in parents and name = '{DRAFTS_NAME}' "
+         "and mimeType = 'application/vnd.google-apps.folder' and trashed = false")
+    res = drive.files().list(q=q, fields="files(id)", supportsAllDrives=True,
+                             includeItemsFromAllDrives=True, corpora="allDrives").execute()
+    hits = res.get("files", [])
+    if hits:
+        return hits[0]["id"]
+    made = drive.files().create(
+        body={"name": DRAFTS_NAME, "mimeType": "application/vnd.google-apps.folder", "parents": [JOBS]},
+        fields="id", supportsAllDrives=True).execute()
+    return made["id"]
+
+
+def draft_save(body):
+    name, data = (body.get("name") or "").strip(), body.get("data")
+    if not name or data is None:
+        return {"ok": False, "error": "name and data required"}
+    drive = build("drive", "v3", credentials=_creds(), cache_discovery=False)
+    folder = _drafts_folder(drive)
+    fname = re.sub(r'[\\/:*?"<>|]', "_", name) + ".json"
+    media = MediaIoBaseUpload(io.BytesIO(json.dumps(data).encode()), mimetype="application/json")
+    q = f"'{folder}' in parents and name = '{json.dumps(fname)[1:-1]}' and trashed = false"
+    res = drive.files().list(q=q, fields="files(id)", supportsAllDrives=True,
+                             includeItemsFromAllDrives=True, corpora="allDrives").execute()
+    hits = res.get("files", [])
+    if hits:  # same name = overwrite, so a project keeps one current save
+        drive.files().update(fileId=hits[0]["id"], media_body=media, supportsAllDrives=True).execute()
+        return {"ok": True, "updated": True}
+    drive.files().create(body={"name": fname, "parents": [folder]}, media_body=media,
+                         supportsAllDrives=True).execute()
+    return {"ok": True, "updated": False}
+
+
+def draft_list():
+    drive = build("drive", "v3", credentials=_creds(), cache_discovery=False)
+    folder = _drafts_folder(drive)
+    res = drive.files().list(
+        q=f"'{folder}' in parents and trashed = false and mimeType = 'application/json'",
+        fields="files(id, name, modifiedTime)", orderBy="modifiedTime desc", pageSize=100,
+        supportsAllDrives=True, includeItemsFromAllDrives=True, corpora="allDrives").execute()
+    drafts = [{"id": f["id"], "name": f["name"].rsplit(".json", 1)[0], "modified": f.get("modifiedTime", "")}
+              for f in res.get("files", [])]
+    return {"ok": True, "drafts": drafts}
+
+
+def draft_get(body):
+    file_id = body.get("id")
+    if not file_id:
+        return {"ok": False, "error": "id required"}
+    drive = build("drive", "v3", credentials=_creds(), cache_discovery=False)
+    data = drive.files().get_media(fileId=file_id).execute()
+    return {"ok": True, "data": json.loads(data)}
 
 
 # ── quote log (every saved quote appends a row; Dashboard tab = CEO view) ───

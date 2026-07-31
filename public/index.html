@@ -12,6 +12,18 @@
 }
 *{box-sizing:border-box;}
 body{margin:0;padding:0;background:var(--cream);font-family:'Segoe UI',Arial,sans-serif;color:var(--ink);font-size:13px;}
+.topbar{position:sticky;top:0;z-index:500;background:var(--ink);display:flex;align-items:center;gap:6px;padding:0 20px;height:52px;box-shadow:0 1px 8px rgba(0,0,0,.25);}
+.topbar .tb-logo{height:34px;display:block;margin-right:14px;}
+.tb-menu{position:relative;}
+.tb-btn{background:none;border:none;color:var(--cream);font-size:12.5px;font-weight:600;letter-spacing:.04em;padding:10px 12px;cursor:pointer;border-radius:5px;}
+.tb-btn:hover{background:#2b2823;color:#fff;}
+.tb-drop{display:none;position:absolute;top:100%;left:0;background:#fff;border:1px solid var(--rule);border-radius:0 0 8px 8px;box-shadow:0 6px 18px rgba(0,0,0,.18);min-width:220px;padding:6px;}
+.tb-menu:hover .tb-drop,.tb-menu:focus-within .tb-drop{display:block;}
+.tb-item{display:block;width:100%;text-align:left;background:none;border:none;padding:8px 10px;font-size:12.5px;color:var(--ink);cursor:pointer;border-radius:5px;}
+.tb-item:hover{background:var(--cream);}
+.tb-note{font-size:10.5px;color:var(--grey);padding:2px 10px 6px;}
+.tb-spacer{flex:1;}
+.tb-save{background:var(--mustard-deep);color:#fff;border:none;padding:8px 14px;border-radius:5px;font-weight:700;font-size:12px;cursor:pointer;}
 .wrap-outer{display:flex;gap:18px;align-items:flex-start;max-width:1460px;margin:0 auto;padding:20px 20px 60px;}
 .form-col{flex:1;min-width:0;}
 h1{font-size:22px;margin:0 0 2px;}
@@ -327,6 +339,31 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
 </style>
 </head>
 <body>
+<div class="topbar">
+  <img class="tb-logo" src="/assets/logo.png" alt="Endure Decks" onerror="this.style.display='none'">
+  <div class="tb-menu"><button class="tb-btn">Build ▾</button><div class="tb-drop">
+    <button class="tb-item" onclick="tbGo('jobSetupCard')">Job setup</button>
+    <button class="tb-item" onclick="tbGo('pkgBuilderCard')">Deck calculator</button>
+    <button class="tb-item" onclick="tbGo('recipeCard')">Recipe builder</button>
+    <button class="tb-item" onclick="tbGo('extrasCard')">Optional extras</button>
+    <button class="tb-item" onclick="tbGo('sketchCard')">Site sketch</button>
+    <button class="tb-item" onclick="tbGo('icCard')">Internal costing</button>
+    <button class="tb-item" onclick="tbGo('projectRunCard')">Project run &amp; payments</button>
+  </div></div>
+  <div class="tb-menu"><button class="tb-btn">Library ▾</button><div class="tb-drop">
+    <button class="tb-item" onclick="projectsOpen()">📂 Saved projects</button>
+    <button class="tb-item" onclick="imgLibOpen(null)">🖼 Image library</button>
+    <button class="tb-item" onclick="tbGo('recipeCard')">🧾 Recipe library</button>
+    <button class="tb-item" onclick="tbGo('extrasCard')">✚ Extras library</button>
+  </div></div>
+  <div class="tb-menu"><button class="tb-btn">Contracts &amp; templates ▾</button><div class="tb-drop">
+    <button class="tb-item" onclick="notify('Contract terms are with the lawyer — they land in the document as toggle pages once approved.')">Contract terms (in legal review)</button>
+    <button class="tb-item" onclick="tbGo('jobSetupCard')">Concept pages (in Job setup)</button>
+    <div class="tb-note">Templates grow here — similar projects bank is on the roadmap.</div>
+  </div></div>
+  <span class="tb-spacer"></span>
+  <button class="tb-save" onclick="saveProjectToDrive()">💾 Save project</button>
+</div>
 <div class="wrap-outer">
 <div class="form-col">
   <h1>Endure Proposal &amp; Quote Builder</h1>
@@ -348,7 +385,7 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
   </div>
 
   <!-- JOB SETUP -->
-  <div class="card">
+  <div class="card" id="jobSetupCard">
     <h2>Job setup</h2>
     <p class="desc">The basics — cover page and filing. "Prepared for" mirrors the client name and the date defaults to today; status labels are set automatically by document type (override only if needed).</p>
     <div class="grid2">
@@ -765,7 +802,7 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
   </div>
 
   <!-- PROJECT RUN -->
-  <div class="card">
+  <div class="card" id="projectRunCard">
     <h2>Project run &amp; payment schedule</h2>
     <div class="check-row" style="margin-bottom:8px;">
       <input type="checkbox" id="inc_projectrun" checked onchange="S.include.project_run=this.checked; refresh();">
@@ -788,7 +825,7 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
   </div>
 
   <!-- INTERNAL COSTING — PM ONLY -->
-  <div class="card internal-card">
+  <div class="card internal-card" id="icCard">
     <h2 id="icTitle">Internal costing — Endure eyes only</h2>
     <p class="desc" id="icDesc"></p>
     <div class="field"><label>Costings Google Sheet link (optional)</label><span class="hint">Paste the link to the estimating sheet these numbers came from — when generating, Claude opens it and reconciles the proposal against it.</span>
@@ -2733,16 +2770,82 @@ function refresh(){
 // ---------------- autosave ----------------
 const FIELD_IDS = ['client_name','project_type','location','proposal_date','cover_subtitle','prepared_for','status_label','eyebrow_tag',
   'preliminary_note','consult_fee_paid','fx_summary_line','fx_package_label','fx_footnote','fx_included','fx_excluded','fx_deposit_pct','pr_lead','ic_sheet_url','ic_comm_pct','t_approach','t_your_project','t_finance','t_approval','t_project_run','ops_notes'];
+function buildDraftCopy(){
+  S.fields = {};
+  FIELD_IDS.forEach(function(id){ S.fields[id]=val(id); });
+  const copy = JSON.parse(JSON.stringify(S));
+  copy.ic.attachments = [];  // dataURLs would blow the localStorage quota
+  if(copy.sketch) copy.sketch = {ops:copy.sketch.ops||[], bg:null, grid:copy.sketch.grid!==false};  // vector ops persist, photo underlay doesn't
+  if(copy.concept) copy.concept = {pages:[]};  // concept images too big for drafts
+  return copy;
+}
 function autosave(){
+  try{ LSTORE.setItem('endureBuilderDraft', JSON.stringify(buildDraftCopy())); }catch(e){}
+}
+
+// ---------------- project library (named saves, live in Drive) ----------------
+function tbGo(id){
+  const el=document.getElementById(id);
+  if(el){ el.classList.remove('hidden'); el.scrollIntoView({behavior:'smooth', block:'start'}); }
+}
+async function saveProjectToDrive(){
+  if(!imgLibAvailable()){ notify('Saving projects needs the hosted tool (they live in Drive).'); return; }
+  const suggested = (val('client_name')||'').trim() || 'Untitled project';
+  const name = (window.prompt('Save project as:', suggested)||'').trim();
+  if(!name) return;
+  const st=document.getElementById('statusLine');
   try{
-    S.fields = {};
-    FIELD_IDS.forEach(function(id){ S.fields[id]=val(id); });
-    const copy = JSON.parse(JSON.stringify(S));
-    copy.ic.attachments = [];  // dataURLs would blow the localStorage quota
-    if(copy.sketch) copy.sketch = {ops:copy.sketch.ops||[], bg:null, grid:copy.sketch.grid!==false};  // vector ops persist, photo underlay doesn't
-    if(copy.concept) copy.concept = {pages:[]};  // concept images too big for drafts
-    LSTORE.setItem('endureBuilderDraft', JSON.stringify(copy));
-  }catch(e){}
+    if(st){ st.className='status-line'; st.textContent='Saving project…'; }
+    const r = await hostedPost({action:'draft_save', name:name, data:buildDraftCopy()});
+    if(!r || !r.ok) throw new Error((r&&r.error)||'save failed');
+    if(st){ st.className='status-line ok'; st.textContent='"'+name+'" saved to the project library'+(r.updated?' (updated)':'')+' — reload it any time from Library → Saved projects, on any device.'; }
+  }catch(e){
+    if(st){ st.className='status-line err'; st.textContent='Project save failed: '+e.message; }
+  }
+}
+let _projLoadArm = null;
+async function projectsOpen(){
+  if(!imgLibAvailable()){ notify('The project library needs the hosted tool (it lives in Drive).'); return; }
+  imgLibClose();
+  const ov=document.createElement('div');
+  ov.id='imgLibOverlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(26,24,21,.55);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;';
+  ov.innerHTML = '<div style="background:#fff;border-radius:10px;max-width:560px;width:100%;max-height:80vh;overflow:auto;padding:16px;">'
+    +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">'
+    +'<h2 style="margin:0;font-size:15px;">Saved projects</h2>'
+    +'<span style="flex:1;"></span><button class="sk-btn" onclick="imgLibClose()">✕ close</button></div>'
+    +'<div id="projList" style="display:flex;flex-direction:column;gap:6px;"><span style="color:var(--grey);font-size:12px;">Loading…</span></div></div>';
+  ov.addEventListener('click', function(e){ if(e.target===ov) imgLibClose(); });
+  document.body.appendChild(ov);
+  try{
+    const r = await hostedPost({action:'draft_list'});
+    if(!r || !r.ok) throw new Error((r&&r.error)||'list failed');
+    const el=document.getElementById('projList');
+    if(!(r.drafts||[]).length){ el.innerHTML='<span style="color:var(--grey);font-size:12px;">No saved projects yet — hit "💾 Save project" in the top bar to file the one you’re working on.</span>'; return; }
+    el.innerHTML = r.drafts.map(function(d){
+      const when = d.modified ? new Date(d.modified).toLocaleString('en-AU',{dateStyle:'medium',timeStyle:'short'}) : '';
+      return '<button class="tb-item" style="border:1px solid var(--rule);display:flex;gap:10px;align-items:center;" onclick="projectLoad(\''+escA(d.id)+'\', this)">'
+        +'<strong>'+esc(d.name)+'</strong><span style="flex:1;"></span><span style="color:var(--grey);font-size:11px;">'+esc(when)+'</span></button>';
+    }).join('');
+  }catch(e){
+    const el=document.getElementById('projList');
+    if(el) el.innerHTML='<span style="color:var(--red);font-size:12px;">Library failed: '+esc(e.message)+'</span>';
+  }
+}
+async function projectLoad(id, btn){
+  if(_projLoadArm !== id){
+    _projLoadArm = id;
+    if(btn) btn.innerHTML = '<strong style="color:var(--red);">Load and replace the current form? Click again.</strong>';
+    setTimeout(function(){ _projLoadArm = null; }, 4000);
+    return;
+  }
+  _projLoadArm = null;
+  try{
+    const r = await hostedPost({action:'draft_get', id:id});
+    if(!r || !r.ok) throw new Error((r&&r.error)||'load failed');
+    LSTORE.setItem('endureBuilderDraft', JSON.stringify(r.data));
+    location.reload();  // boot path restores the draft exactly like a normal reload
+  }catch(e){ notify('Project load failed: '+e.message); }
 }
 function restore(){
   try{
