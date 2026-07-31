@@ -349,12 +349,14 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
     <button class="tb-item" onclick="tbGo('sketchCard')">Site sketch</button>
     <button class="tb-item" onclick="tbGo('icCard')">Internal costing</button>
     <button class="tb-item" onclick="tbGo('projectRunCard')">Project run &amp; payments</button>
+    <a class="tb-item" id="tbRateLink" href="https://docs.google.com/spreadsheets/d/1OkaSPAvvfZMAfJIl7E2umsOQD-OT5FmrToa6CL_JLcg/edit" target="_blank" style="text-decoration:none;border-top:1px solid var(--rule);margin-top:4px;padding-top:8px;">📊 Rate card sheet ↗</a>
   </div></div>
   <div class="tb-menu"><button class="tb-btn">Library ▾</button><div class="tb-drop">
     <button class="tb-item" onclick="projectsOpen()">📂 Saved projects</button>
     <button class="tb-item" onclick="imgLibOpen(null)">🖼 Image library</button>
     <button class="tb-item" onclick="tbGo('recipeCard')">🧾 Recipe library</button>
     <button class="tb-item" onclick="tbGo('extrasCard')">✚ Extras library</button>
+    <a class="tb-item" id="tbLogLink" href="#" target="_blank" style="text-decoration:none;border-top:1px solid var(--rule);margin-top:4px;padding-top:8px;" onclick="if(this.href.slice(-1)==='#'){notify('Quote Log link loads once the tool talks to Drive — save a job first if this is a fresh setup.'); return false;}">📈 Quote Log &amp; dashboard ↗</a>
   </div></div>
   <div class="tb-menu"><button class="tb-btn">Contracts &amp; templates ▾</button><div class="tb-drop">
     <button class="tb-item" onclick="notify('Contract terms are with the lawyer — they land in the document as toggle pages once approved.')">Contract terms (in legal review)</button>
@@ -933,6 +935,10 @@ async function loadHostedRates(){
         if(key && Number(data.boards[key])>0) b.cost = Number(data.boards[key]);
       });
       if(Number(data.labour_day)>0) S.rc.labour_day = Number(data.labour_day);
+      if(data.sheet_url){ const rl=document.getElementById('tbRateLink'); if(rl) rl.href = data.sheet_url; }
+      hostedPost({action:'log_url'}).then(function(r){
+        if(r && r.ok && r.url){ const ll=document.getElementById('tbLogLink'); if(ll) ll.href = r.url; }
+      }).catch(function(){});
       renderRates(); renderQC(); refresh();
       const sl=document.getElementById('statusLine');
       if(sl){ sl.className='status-line ok'; sl.textContent='Rates loaded live from the Rate Card sheet.'; }

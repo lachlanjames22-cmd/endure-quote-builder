@@ -83,6 +83,11 @@ async def endure_post(request: Request):
             return render_pdf(body)
         if action == "render_internal":
             return render_internal_pdf(body)
+        if action == "log_url":
+            drive = build("drive", "v3", credentials=_creds(), cache_discovery=False)
+            sheets = build("sheets", "v4", credentials=_creds(), cache_discovery=False)
+            return JSONResponse({"ok": True,
+                                 "url": f"https://docs.google.com/spreadsheets/d/{_quote_log_id(drive, sheets)}/edit"})
         if action == "draft_save":
             return JSONResponse(draft_save(body))
         if action == "draft_list":
@@ -107,7 +112,8 @@ def read_rates():
     rows = vals.get(spreadsheetId=SHEET, range="Shopping List!A1:H60").execute().get("values", [])
     asm = vals.get(spreadsheetId=SHEET, range="Assumptions!A1:B30").execute().get("values", [])
     out = {"ok": True, "boards": {}, "subframe_items": {}, "linear": {}, "perjob": {},
-           "labour_day": None, "gp_target": None}
+           "labour_day": None, "gp_target": None,
+           "sheet_url": f"https://docs.google.com/spreadsheets/d/{SHEET}/edit"}
     oil = 0.0
     for r in rows:
         section = (r[0] if len(r) > 0 else "").strip()
