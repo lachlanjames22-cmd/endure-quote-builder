@@ -1216,7 +1216,13 @@ function heroBullets(b){
   return linesIn(b.name).slice(1).map(function(c){return 'Includes '+c.label.toLowerCase();});
 }
 function heroSpec(b){
-  const base = b.spec_ov || (linesIn(b.name)[0] ? (linesIn(b.name)[0].desc||'') : '');
+  let base = b.spec_ov || (linesIn(b.name)[0] ? (linesIn(b.name)[0].desc||'') : '');
+  if(b.showM2===false){
+    // strip any "NNm²" fragment and tidy the separators left behind
+    base = base.replace(/\s*[·—–-]?\s*\d+(?:\.\d+)?\s*m²\s*[·—–-]?\s*/gi, ' · ')
+               .replace(/\s*·\s*·\s*/g, ' · ')
+               .replace(/^[\s·—–-]+|[\s·—–-]+$/g, '').trim();
+  }
   return (b.inCost===false ? 'Alternative option · ' : '') + base;
 }
 function heroDesc(b){ return b.desc_ov || (b.name+' package, supplied and installed to the Endure 20-Year Standard.'); }
@@ -2028,6 +2034,9 @@ function renderBundles(){
             <option value="ex" ${b.priceMode==='ex'?'selected':''}>Show price ex GST</option>
             <option value="hide" ${b.priceMode==='hide'?'selected':''}>Hide price</option>
           </select></div>
+        <div class="field check-row" style="margin:0;align-self:end;">
+          <input type="checkbox" id="bm2_${i}" ${b.showM2===false?'':'checked'} onchange="S.bundles[${i}].showM2=this.checked; renderBundles(); refresh();">
+          <label for="bm2_${i}" style="margin:0;">Show m² on the card</label></div>
         <div class="field" style="margin:0;"><label>Spec line override</label><input type="text" placeholder="(auto from first line)" value="${escA(b.spec_ov)}" oninput="S.bundles[${i}].spec_ov=this.value"></div>
         <div class="field" style="grid-column:1/3;margin:0;"><label>Description override</label><input type="text" placeholder="${escA(heroDesc(b))}" value="${escA(b.desc_ov)}" oninput="S.bundles[${i}].desc_ov=this.value"></div>
         <div class="field" style="margin:0;"><label>Bullets override (one per line)</label><textarea placeholder="auto: ${escA(heroBullets(b).join(', '))}" oninput="S.bundles[${i}].bullets_ov=this.value">${esc(b.bullets_ov)}</textarea></div>
