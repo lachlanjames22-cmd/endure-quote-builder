@@ -950,6 +950,22 @@ async function loadHostedRates(){
         if(key && Number(data.boards[key])>0) b.cost = Number(data.boards[key]);
       });
       if(Number(data.labour_day)>0) S.rc.labour_day = Number(data.labour_day);
+      // per-job costs from the sheet feed the rate settings and any BLANK fixed-cost rows
+      if(data.perjob){
+        Object.keys(data.perjob).forEach(function(k){
+          const v = Number(data.perjob[k]);
+          if(!(v>0)) return;
+          if(/delivery/i.test(k)) S.rc.delivery = v;
+          if(/skip|bin/i.test(k)) S.rc.bin = v;
+        });
+        (S.fixedCosts||[]).forEach(function(c){
+          if(c.amount!=='' && c.amount!==null && c.amount!==undefined) return;  // never clobber a typed amount
+          if(/delivery/i.test(c.label) && Number(S.rc.delivery)>0) c.amount = Number(S.rc.delivery);
+          if(/skip|bin/i.test(c.label) && Number(S.rc.bin)>0) c.amount = Number(S.rc.bin);
+        });
+        if(typeof renderFixedCosts==='function') renderFixedCosts();
+      }
+      if(Number(data.gp_target)>0) S.rc.gp_target = Number(data.gp_target);
       if(data.sheet_url){ const rl=document.getElementById('tbRateLink'); if(rl) rl.href = data.sheet_url; }
       hostedPost({action:'log_url'}).then(function(r){
         if(r && r.ok && r.url){ const ll=document.getElementById('tbLogLink'); if(ll) ll.href = r.url; }
@@ -2451,10 +2467,10 @@ function icTotals(){
           sellEx:sellEx, totalCost:totalCost, gp:gp, gpPct:gpPct, commission:commission, net:net, gpPerDay:gpPerDay,
           area:area, matM2:pm2(matT), labM2:pm2(labT), costM2:pm2(totalCost), sellM2:pm2(sellEx), gpM2:pm2(gp)};
 }
-function autoFillInternal(){
-  if(!S.icAuto || S.mode!=='fixed') return;
+function computeAutoFill(){
+  // pure: what the costing SHOULD hold, straight from the quote lines. Never mutates state.
   const lines = inCostLines();
-  if(!lines.length) return;
+  if(!lines.length) return null;
   const mats=[], labs=[], passes=[];
   const ld = Number(S.rc.labour_day)||1;
   lines.forEach(function(c){
@@ -2485,8 +2501,14 @@ function autoFillInternal(){
       return;
     }
     if(Number(c.costSub) || Number(c.costBoard)){
-      if(Number(c.costSub)) mats.push({item:'Subframe — materials', supplier:'', stream:stream, qty:1, unit:Number(c.costSub)});
-      if(Number(c.costBoard)) mats.push({item:'Boards — materials', supplier:'', stream:stream, qty:1, unit:Number(c.costBoard)});
+      // show the maths, not a lump sum: qty = m², unit = $/m² (falls back to 1 × total when no area)
+      const area = rb && rb.params ? Number(rb.params.area)||0 : 0;
+      function matRow(item, total){
+        if(area>0) return {item:item, supplier:'', stream:stream, qty:area, unit:+(total/area).toFixed(2)};
+        return {item:item, supplier:'', stream:stream, qty:1, unit:total};
+      }
+      if(Number(c.costSub)) mats.push(matRow('Subframe — materials', Number(c.costSub)));
+      if(Number(c.costBoard)) mats.push(matRow('Boards — materials', Number(c.costBoard)));
       const rest = (Number(c.cost)||0)-(Number(c.costSub)||0)-(Number(c.costBoard)||0);
       if(rest>0.5) mats.push({item:c.label+' — other materials', supplier:'', stream:stream, qty:1, unit:Math.round(rest)});
     } else if(Number(c.cost)){
@@ -2497,6 +2519,38 @@ function autoFillInternal(){
   (S.fixedCosts||[]).filter(function(c){return c.label && Number(c.amount)>0;}).forEach(function(c){
     passes.push({label:c.label, type:'At-cost', cost:Math.round(Number(c.amount)), margin:''});
   });
+  return {mats:mats, labs:labs, passes:passes};
+}
+function icAutoTotals(af){
+  if(!af) return null;
+  const mat = af.mats.reduce(function(a,m){return a+(Number(m.qty)||0)*(Number(m.unit)||0);},0);
+  const lab = af.labs.reduce(function(a,l){return a+(Number(l.days)||0)*(Number(l.rate)||0);},0);
+  const pas = af.passes.reduce(function(a,p){return a+(Number(p.cost)||0);},0);
+  return {mat:mat, lab:lab, pas:pas, total:mat+lab+pas};
+}
+// The costing is OUT OF SYNC when hand-edited AND the quote has moved on underneath it
+function icDrift(){
+  if(S.icAuto || S.mode!=='fixed') return null;
+  const auto = icAutoTotals(computeAutoFill());
+  if(!auto) return null;
+  const t = icTotals();
+  const shown = t.matT + t.labT + t.passCost;
+  if(auto.total<=0 && shown<=0) return null;
+  const drift = Math.abs(auto.total - shown);
+  if(drift <= Math.max(auto.total, shown)*0.01) return null;
+  return {shown:shown, auto:auto.total, drift:drift};
+}
+function rebuildCostings(){
+  S.icAuto = true;
+  autoFillInternal();
+  renderIcMat(); renderIcLab(); renderIcPass(); refresh();
+  notify('Costings rebuilt from the quote — every line re-derived from the current packages, rates and fixed costs.');
+}
+function autoFillInternal(){
+  if(!S.icAuto || S.mode!=='fixed') return;
+  const af = computeAutoFill();
+  if(!af) return;
+  const mats = af.mats, labs = af.labs, passes = af.passes;
   S.ic.mats = mats.length?mats:[{item:'',supplier:'',stream:'',qty:'',unit:''}];
   S.ic.labs = labs.length?labs:[{task:'',stream:'',days:'',rate:''}];
   S.ic.passes = passes;
@@ -2564,9 +2618,17 @@ function renderIcSummary(){
   }
   const autoEl = document.getElementById('icAutoBadge');
   if(autoEl){
-    autoEl.innerHTML = S.icAuto
-      ? '<span style="color:var(--green);font-size:11px;">● auto — pre-loaded from the calculator, updates as you quote</span>'
-      : '<span style="color:var(--mustard-deep);font-size:11px;">● manual — edited by hand</span> <button class="reset-btn" onclick="S.icAuto=true; autoFillInternal(); renderIcMat(); renderIcLab(); renderIcPass(); refresh();">↺ back to auto</button>';
+    if(S.icAuto){
+      autoEl.innerHTML = '<span style="color:var(--green);font-size:11px;">● live — rebuilt from the quote automatically as you work</span>';
+    } else {
+      const d = icDrift();
+      const warn = d
+        ? '<div style="background:#fdeaea;border:1.5px solid var(--red);color:var(--red);padding:8px 12px;border-radius:6px;font-size:12px;font-weight:600;margin-bottom:6px;">⚠ OUT OF SYNC — the quote now says '+fmt$(d.auto)+' of cost, but this sheet still shows '+fmt$(d.shown)+'. These numbers are frozen from an earlier edit and are NOT following the quote.</div>'
+        : '<div style="font-size:11.5px;color:var(--mustard-deep);margin-bottom:6px;">● hand-edited — frozen. The quote no longer updates this sheet (currently still matching).</div>';
+      autoEl.innerHTML = warn
+        + '<button class="add-btn" style="margin-top:0;background:var(--mustard-deep);color:#fff;font-weight:700;" onclick="rebuildCostings()">⟳ Rebuild costings from the quote</button>'
+        + '<span style="font-size:10.5px;color:var(--grey);margin-left:8px;">re-derives every line from the current packages and rates — hand edits are discarded</span>';
+    }
   }
   const warns = [];
   if(t.sellEx>0 && t.totalCost>0 && t.gpPct < 35) warns.push('GP is '+t.gpPct.toFixed(1)+'% — below the 35% target.');
