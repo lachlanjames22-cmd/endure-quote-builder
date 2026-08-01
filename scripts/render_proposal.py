@@ -603,7 +603,8 @@ def page_cost_fixed(d, n, status_label):
             saw_fixed = True
             lines += '<div class="cb2-subhead">Project requirements</div>'
         # line amounts display ex GST; the total block shows both ex and inc
-        lines += (f'<div class="cb2-line"><div>{l["label"]}<div class="desc">{l["desc"]}</div></div>'
+        desc = esc(l.get("desc", "")).replace("\n", "<br>")
+        lines += (f'<div class="cb2-line"><div>{l["label"]}<div class="desc">{desc}</div></div>'
                   f'<div class="amount">{fmt_money(l["amount"] / 1.1, 2)}</div></div>')
     return f'''<div class="page">{head(f"Price Breakdown &middot; {n:02d}")}<div class="pbody">
   <div class="eyebrow">Pricing Breakdown</div>
