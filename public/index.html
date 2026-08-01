@@ -1637,14 +1637,17 @@ function renderQuoteSummary(){
 function renderCostLines(){
   document.getElementById('costLinesBody').innerHTML = S.costLines.map(function(c,i){
     return `<tr>
-      <td><input type="text" value="${escA(c.label)}" oninput="S.costLines[${i}].label=this.value" placeholder="Stairs / Cladding / anything"></td>
+      <td style="white-space:nowrap;"><input type="text" style="width:calc(100% - 26px);display:inline-block;" value="${escA(c.label)}" oninput="S.costLines[${i}].label=this.value" placeholder="Stairs / Cladding / anything"><button class="rm-btn" title="Edit the text under this line on the document" onclick="S.costLines[${i}]._descOpen=!S.costLines[${i}]._descOpen; renderCostLines();">${c._descOpen?'▴':'▾'}</button></td>
       <td><select onchange="S.costLines[${i}].bundle=this.value; pruneBundles(); renderBundles(); refresh();">${bundleOptions(c.bundle||'')}</select></td>
       <td><input type="number" value="${escA(c.cost)}" oninput="S.costLines[${i}].cost=this.value"></td>
       <td><input type="number" value="${escA(c.labour)}" oninput="S.costLines[${i}].labour=this.value"></td>
       <td><input type="number" value="${escA(c.margin)}" oninput="S.costLines[${i}].margin=this.value"></td>
       <td style="padding-top:9px;font-weight:600;">${fmt$(lineSellInc(c))} <span style="font-weight:400;color:var(--grey);font-size:10px;">inc</span></td>
       <td><button class="rm-btn" onclick="S.costLines.splice(${i},1); pruneBundles(); renderCostLines(); renderBundles(); refresh();">✕</button></td>
-    </tr>`; }).join('');
+    </tr>` + (c._descOpen?`<tr><td colspan="7" style="background:var(--cream);">
+      <label style="font-size:10.5px;">Text below this line on the document (client sees — line breaks kept)</label>
+      <textarea rows="3" style="width:100%;font-family:inherit;font-size:12px;" placeholder="Supply & install" oninput="S.costLines[${i}].desc=this.value; refresh();">${esc(c.desc||'')}</textarea>
+    </td></tr>`:''); }).join('');
 }
 function addCostLine(){ S.costLines.push({label:'',cost:'',labour:'',margin:'',bundle:'',sel:false}); renderCostLines(); refresh(); }
 
