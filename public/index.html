@@ -30,6 +30,11 @@ h1{font-size:22px;margin:0 0 2px;}
 .sub{color:var(--grey);font-size:12.5px;margin:0 0 18px;}
 .card{background:var(--white);border:1px solid var(--rule);border-radius:8px;padding:16px 18px;margin-bottom:16px;}
 .card h2{font-size:14px;margin:0 0 4px;color:var(--mustard-deep);text-transform:uppercase;letter-spacing:.06em;}
+.card.collapsible > h2{cursor:pointer;user-select:none;margin-bottom:0;}
+.card.collapsible > h2::before{content:'▸  ';color:var(--mustard-deep);}
+.card.collapsible.open > h2::before{content:'▾  ';}
+.card.collapsible.open > h2{margin-bottom:4px;}
+.card.collapsible:not(.open) > :not(h2){display:none !important;}
 .card .desc{color:var(--grey);font-size:11.5px;margin:0 0 12px;}
 .mode-toggle{display:flex;gap:10px;margin-bottom:16px;}
 .mode-btn{flex:1;padding:12px;text-align:center;border:2px solid var(--rule);border-radius:8px;cursor:pointer;background:var(--white);font-weight:600;}
@@ -433,8 +438,8 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
   </div>
 
   <!-- OPS NOTES (internal — never on the client quote) -->
-  <div class="card">
-    <h2>Site &amp; ops notes — for the crew, not the client</h2>
+  <div class="card collapsible" id="opsCard">
+    <h2 onclick="this.parentElement.classList.toggle('open')">Site &amp; ops notes — for the crew, not the client</h2>
     <p class="desc">None of this shows on the quote. It rides along in the job folder so whoever builds it knows the site.</p>
     <div class="mode-toggle" style="margin-bottom:10px;">
       <div class="mode-btn active" id="opsTabNotes" onclick="setOpsTab('notes')" style="padding:8px;">Notes</div>
@@ -647,8 +652,8 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
       </div>
     </div>
 
-    <div class="card">
-      <h2>&#9314; Your quote</h2>
+    <div class="card collapsible" id="quoteTermsCard">
+      <h2 onclick="this.parentElement.classList.toggle('open')">&#9314; Your quote — terms, included &amp; excluded</h2>
       <p class="desc">How the quote reads to the client — fixed costs, then each package with its items and a bold total.</p>
       <div id="quoteSummary" style="margin-bottom:10px;"></div>
       <details class="rates"><summary>See / edit every line</summary>
@@ -730,8 +735,8 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
   </div>
 
   <!-- OPTIONAL EXTRAS / UPGRADES (all lanes — tickable on the approval page, NOT in the quote total) -->
-  <div class="card" id="extrasCard">
-    <h2>Optional extras &amp; upgrades</h2>
+  <div class="card collapsible" id="extrasCard">
+    <h2 onclick="this.parentElement.classList.toggle('open')">Optional extras &amp; upgrades</h2>
     <p class="desc">Upsells the client can tick on the <strong>Next step</strong> page — priced individually, <strong>never counted in the project total</strong>. Work the numbers ex GST like everywhere else; the card shows the client the inc-GST price. Save regulars to the library and reuse them with tweaked numbers on any job.</p>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
       <select id="xtr_lib" style="width:auto;max-width:280px;" onchange="addExtraFromLib(this.value)"></select>
@@ -747,8 +752,8 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
   </div>
 
   <!-- SITE SKETCH -->
-  <div class="card" id="sketchCard">
-    <h2>Site sketch</h2>
+  <div class="card collapsible" id="sketchCard">
+    <h2 onclick="this.parentElement.classList.toggle('open'); skRedraw();">Site sketch</h2>
     <p class="desc">Draw the deck, mark dimensions, trace over a site photo. Works with a finger on a phone or tablet.
     The sketch saves into the job's Drive folder automatically — it never appears in the client document.</p>
     <div class="sk-toolbar" id="skToolbar">
@@ -776,8 +781,8 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
   </div>
 
   <!-- FINANCE -->
-  <div class="card">
-    <h2>HandyPay finance page</h2>
+  <div class="card collapsible" id="financeCard">
+    <h2 onclick="this.parentElement.classList.toggle('open')">HandyPay finance page</h2>
     <div class="check-row" style="margin-bottom:8px;">
       <input type="checkbox" id="inc_finance" checked onchange="S.include.finance=this.checked; refresh();">
       <label for="inc_finance" style="margin:0;">Include the finance page in this document</label>
@@ -2792,7 +2797,11 @@ function autosave(){
 // ---------------- project library (named saves, live in Drive) ----------------
 function tbGo(id){
   const el=document.getElementById(id);
-  if(el){ el.classList.remove('hidden'); el.scrollIntoView({behavior:'smooth', block:'start'}); }
+  if(!el) return;
+  el.classList.remove('hidden');
+  if(el.classList.contains('collapsible')) el.classList.add('open');
+  if(id==='sketchCard') skRedraw();
+  el.scrollIntoView({behavior:'smooth', block:'start'});
 }
 async function saveProjectToDrive(){
   if(!imgLibAvailable()){ notify('Saving projects needs the hosted tool (they live in Drive).'); return; }
