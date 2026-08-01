@@ -1699,7 +1699,7 @@ function renderManual(){
     return `<tr>
       <td><input type="text" value="${escA(c.label)}" oninput="mEdit(${i},'label',this.value)" placeholder="e.g. Custom bench seat"></td>
       <td><select onchange="mEdit(${i},'cat',this.value); renderManual();">${catOpts}</select></td>
-      <td><input type="text" value="${escA(c.desc||'')}" oninput="mEdit(${i},'desc',this.value)" placeholder="Supply & install"></td>
+      <td style="white-space:nowrap;"><input type="text" style="width:calc(100% - 26px);display:inline-block;" id="mn_desc_${i}" value="${escA(c.desc||'')}" oninput="mEdit(${i},'desc',this.value)" placeholder="Supply & install"><button class="rm-btn" title="Write longer text — shows below the item title on the document" onclick="c=S.costLines[${i}]; c._descOpen=!c._descOpen; renderManual();">${c._descOpen?'▴':'▾'}</button></td>
       <td><input type="number" value="${escA(c.qty)}" oninput="mEdit(${i},'qty',this.value)" title="${isLab?'Days':'Quantity'}" placeholder="${isLab?'days':''}"></td>
       <td><input type="number" value="${escA(c.unit)}" oninput="mEdit(${i},'unit',this.value)" title="${isLab?'Day rate $':'Cost per unit $'}" placeholder="${isLab?'rate':''}"></td>
       <td><input type="number" id="mn_cost_${i}" value="${escA(c.cost)}" oninput="mEdit(${i},'cost',this.value)"></td>
@@ -1707,7 +1707,10 @@ function renderManual(){
       <td style="padding-top:9px;font-weight:600;"><span id="mn_sell_${i}">${fmt$(lineSellInc(c))}</span> <span style="font-weight:400;color:var(--grey);font-size:10px;">inc GST</span>
         <div style="font-weight:400;color:var(--grey);font-size:10px;" id="mn_mg_${i}">margin ${fmt$(Number(c.margin)||0)}</div></td>
       <td><button class="rm-btn" onclick="S.costLines.splice(${i},1); renderManual(); renderCostLines(); refresh();">✕</button></td>
-    </tr>`; }).join('');
+    </tr>` + (c._descOpen?`<tr><td colspan="9" style="background:var(--cream);">
+      <label style="font-size:10.5px;">Text below the title (client sees — line breaks kept)</label>
+      <textarea rows="3" style="width:100%;font-family:inherit;font-size:12px;" oninput="mEdit(${i},'desc',this.value); const el=document.getElementById('mn_desc_${i}'); if(el&&document.activeElement!==el) el.value=this.value;">${esc(c.desc||'')}</textarea>
+    </td></tr>`:''); }).join('');
   renderManualTotals();
 }
 function renderManualTotals(){
@@ -2262,7 +2265,7 @@ function pvCostFixed(n){
   const lines = allCostLines().map(function(l){
     let h='';
     if(l.group==='fixed' && !sawFixed){ sawFixed=true; h='<div class="cb2-subhead">Project requirements</div>'; }
-    return h+`<div class="cb2-line"><div>${esc(l.label)}<div class="desc">${esc(l.desc)}</div></div><div class="amount">${fmt$2(l.amount/1.1)}</div></div>`; }).join('');
+    return h+`<div class="cb2-line"><div>${esc(l.label)}<div class="desc">${esc(l.desc).replace(/\n/g,'<br>')}</div></div><div class="amount">${fmt$2(l.amount/1.1)}</div></div>`; }).join('');
   const tot = totalInc();
   return `<div class="page">${pvHead('Price Breakdown · '+String(n).padStart(2,'0'))}<div class="pbody">
     <div class="eyebrow">Pricing Breakdown</div><div class="title">Price <span class="mustard">breakdown.</span></div>
@@ -3133,7 +3136,7 @@ function renderExtras(){
   el.innerHTML = extrasList().map(function(x,i){
     return `<tr>
       <td><input type="text" value="${escA(x.label)}" oninput="xtrEdit(${i},'label',this.value)" placeholder="e.g. LED lighting package"></td>
-      <td><input type="text" value="${escA(x.desc||'')}" oninput="xtrEdit(${i},'desc',this.value)" placeholder="Supply & install"></td>
+      <td style="white-space:nowrap;"><input type="text" style="width:calc(100% - 26px);display:inline-block;" id="xtr_desc_${i}" value="${escA(x.desc||'')}" oninput="xtrEdit(${i},'desc',this.value)" placeholder="Supply & install"><button class="rm-btn" title="Write longer text — shows below the item title on the document" onclick="x=extrasList()[${i}]; x._descOpen=!x._descOpen; renderExtras();">${x._descOpen?'▴':'▾'}</button></td>
       <td><input type="number" value="${escA(x.qty)}" oninput="xtrEdit(${i},'qty',this.value)"></td>
       <td><input type="number" value="${escA(x.unit)}" oninput="xtrEdit(${i},'unit',this.value)"></td>
       <td><input type="number" id="xtr_cost_${i}" value="${escA(x.cost)}" oninput="xtrEdit(${i},'cost',this.value)"></td>
@@ -3142,7 +3145,10 @@ function renderExtras(){
       <td style="padding-top:9px;font-weight:600;"><span id="xtr_sell_${i}">${fmt$(extraSellInc(x))}</span> <span style="font-weight:400;color:var(--grey);font-size:10px;">inc GST</span></td>
       <td style="white-space:nowrap;"><button class="rm-btn" title="Save to library" onclick="saveExtraToLib(${i})">⭳</button>
         <button class="rm-btn" onclick="extrasList().splice(${i},1); renderExtras(); refresh();">✕</button></td>
-    </tr>`; }).join('');
+    </tr>` + (x._descOpen?`<tr><td colspan="9" style="background:var(--cream);">
+      <label style="font-size:10.5px;">Text below the title (client sees — line breaks kept)</label>
+      <textarea rows="3" style="width:100%;font-family:inherit;font-size:12px;" oninput="xtrEdit(${i},'desc',this.value); const el=document.getElementById('xtr_desc_${i}'); if(el&&document.activeElement!==el) el.value=this.value;">${esc(x.desc||'')}</textarea>
+    </td></tr>`:''); }).join('');
   renderExtrasLib();
   renderExtrasTotals();
 }
