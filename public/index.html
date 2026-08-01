@@ -691,6 +691,8 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
         <div style="margin-left:auto;max-width:160px;"><div class="t-lab">Deposit %</div><input type="number" id="fx_deposit_pct" value="5"></div>
       </div>
       <div class="warn" id="qcWarn"></div>
+    </div>
+
     <div class="card" data-ch="project" id="projectPageCard">
       <h2>Your project page</h2>
       <p class="desc">Heroes come from bundles: build line items in the calc, tick + name + "Send to project page". Each hero's price and includes-list flow from its lines. "In costings" decides which bundle the breakdown, totals and budget follow — alternatives stay visible with their own price but out of the maths.</p>
@@ -1985,7 +1987,13 @@ function renderRates(){
 function renderBundles(){
   const el=document.getElementById('bundlesEditor');
   if(!el) return;
-  if(!S.bundles.length){ el.innerHTML='<p style="color:var(--grey);font-style:italic;font-size:12px;">No bundles yet — add the deck from the calc, or tick lines below and send them here.</p>'; return; }
+  if(!S.bundles.length){ el.innerHTML='<div style="background:var(--cream);border:1px dashed var(--rule);border-radius:6px;padding:14px;font-size:12.5px;color:var(--grey);">'
+    +'This page fills itself from <strong>② Pricing</strong> — heroes are born there, not here:'
+    +'<ul style="margin:6px 0 8px 18px;padding:0;"><li>the calculator’s <strong>Add to quote</strong> sends the deck across,</li>'
+    +'<li>a saved <strong>recipe</strong> becomes a hero with its photo,</li>'
+    +'<li>or add a <strong>custom hero</strong> below for manual jobs.</li></ul>'
+    +'Once heroes exist, this chapter is where you jig how they read on the PDF — photo, price shown or hidden, spec line, description, bullets.'
+    +'<div style="margin-top:8px;"><button class="add-btn" style="margin:0;" onclick="setChapter(\'pricing\')">→ Go to Pricing</button></div></div>'; return; }
   el.innerHTML = S.bundles.map(function(b,i){
     const price = heroPriceOf(b);
     const lines = linesIn(b.name);
