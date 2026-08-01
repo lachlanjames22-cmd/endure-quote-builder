@@ -24,7 +24,15 @@ body{margin:0;padding:0;background:var(--cream);font-family:'Segoe UI',Arial,san
 .tb-note{font-size:10.5px;color:var(--grey);padding:2px 10px 6px;}
 .tb-spacer{flex:1;}
 .tb-save{background:var(--mustard-deep);color:#fff;border:none;padding:8px 14px;border-radius:5px;font-weight:700;font-size:12px;cursor:pointer;}
-.wrap-outer{display:flex;gap:18px;align-items:flex-start;max-width:1460px;margin:0 auto;padding:20px 20px 60px;}
+.wrap-outer{display:flex;gap:18px;align-items:flex-start;max-width:1560px;margin:0 auto;padding:20px 20px 60px;}
+.rail{width:150px;flex-shrink:0;position:sticky;top:66px;display:flex;flex-direction:column;gap:4px;}
+.rail-btn{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--rule);border-radius:7px;padding:9px 10px;font-size:12px;font-weight:600;color:var(--ink);cursor:pointer;text-align:left;}
+.rail-btn:hover{background:var(--cream);}
+.rail-btn.active{border-color:var(--mustard-deep);background:var(--cream);box-shadow:inset 3px 0 0 var(--mustard-deep);}
+.rail-btn.internal{color:var(--red);}
+.rail-btn .n{color:var(--mustard-deep);font-family:'EB Garamond',Georgia,serif;font-weight:700;}
+.rail-note{font-size:10px;color:var(--grey);padding:4px 6px;}
+@media (max-width:1400px){ .rail{width:46px;} .rail-btn span:not(.n){display:none;} .rail-btn{justify-content:center;padding:9px 4px;} .rail-note{display:none;} }
 .form-col{flex:1;min-width:0;}
 h1{font-size:22px;margin:0 0 2px;}
 .sub{color:var(--grey);font-size:12.5px;margin:0 0 18px;}
@@ -372,6 +380,7 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
   <button class="tb-save" onclick="saveProjectToDrive()">💾 Save project</button>
 </div>
 <div class="wrap-outer">
+<div class="rail" id="chapterRail"></div>
 <div class="form-col">
   <h1>Endure Proposal &amp; Quote Builder</h1>
   <p class="sub">Fill this in after estimating a job — the preview on the right shows the actual document pages as you type. Saving sends the job data to Drive; then ask Claude to "generate the proposal/quote for &lt;name&gt;" for the final PDF.</p>
@@ -1980,12 +1989,12 @@ function renderBundles(){
   const el=document.getElementById('bundlesEditor');
   if(!el) return;
   if(!S.bundles.length){ el.innerHTML='<div style="background:var(--cream);border:1px dashed var(--rule);border-radius:6px;padding:14px;font-size:12.5px;color:var(--grey);">'
-    +'This page fills itself from the pricing tools — heroes are born there, not here:'
+    +'This page fills itself from <strong>② Pricing</strong> — heroes are born there, not here:'
     +'<ul style="margin:6px 0 8px 18px;padding:0;"><li>the calculator’s <strong>Add to quote</strong> sends the deck across,</li>'
     +'<li>a saved <strong>recipe</strong> becomes a hero with its photo,</li>'
     +'<li>or add a <strong>custom hero</strong> below for manual jobs.</li></ul>'
     +'Once heroes exist, this chapter is where you jig how they read on the PDF — photo, price shown or hidden, spec line, description, bullets.'
-    +'<div style="margin-top:8px;"><button class="add-btn" style="margin:0;" onclick="tbGo(\'pkgBuilderCard\')">→ Go to the calculator</button></div></div>'; return; }
+    +'<div style="margin-top:8px;"><button class="add-btn" style="margin:0;" onclick="setChapter(\'pricing\')">→ Go to Pricing</button></div></div>'; return; }
   el.innerHTML = S.bundles.map(function(b,i){
     const price = heroPriceOf(b);
     const lines = linesIn(b.name);
@@ -2128,6 +2137,7 @@ function setMode(m){
   document.getElementById('fixedSection').classList.toggle('hidden', m!=='fixed');
   const pkg=document.getElementById('pkgBuilderCard'); if(pkg) pkg.classList.toggle('hidden', !!S.manualOnly);
   renderManual();
+  applyChapter();
   refresh();
 }
 
@@ -2636,14 +2646,17 @@ function pvInternal(){
 }
 
 const PV_NAMES = {cover:'Cover', approach:'About Endure', concept:'Your Concept', options:'Options', scope:'Scope & Assumptions', project:'Your Project', cost:'Price Breakdown', finance:'Finance', approval:'Approval & Sign', run:'Project Run', internal:'INTERNAL — PM only'};
-let pvMode = 'follow';
+let pvMode = 'all';  // full document by default — the preview never follows chapters
 let pvActive = 'cover';
-function togglePvMode(){
-  pvMode = pvMode==='follow' ? 'all' : 'follow';
+function syncPvModeUI(){
   const btn=document.getElementById('pvModeBtn');
-  if(btn) btn.textContent = pvMode==='follow' ? 'view full document' : 'back to section view';
+  if(btn) btn.textContent = pvMode==='follow' ? 'view full document' : 'follow the section I\u2019m editing';
   const lbl=document.getElementById('pvModeLabel');
   if(lbl) lbl.style.display = pvMode==='follow' ? '' : 'none';
+}
+function togglePvMode(){
+  pvMode = pvMode==='follow' ? 'all' : 'follow';
+  syncPvModeUI();
   renderPreview();
 }
 function pvSectionOf(el){
@@ -2814,10 +2827,54 @@ function autosave(){
   try{ LSTORE.setItem('endureBuilderDraft', JSON.stringify(buildDraftCopy())); }catch(e){}
 }
 
+// ---------------- chapters (side rail — the document's table of contents) ----------------
+const CHAPTERS = [
+  {key:'setup',    label:'Job setup',              n:'①'},
+  {key:'pricing',  label:'Pricing',                n:'②'},
+  {key:'project',  label:'Project page',           n:'③', lanes:['fixed']},
+  {key:'extras',   label:'Extras & upsells',       n:'④'},
+  {key:'site',     label:'Site — sketch & notes',  n:'⑤'},
+  {key:'finance',  label:'Finance',                n:'⑥'},
+  {key:'run',      label:'Project run & payments', n:'⑦'},
+  {key:'internal', label:'Internal costing',       n:'⑧', internal:true},
+];
+function chapterVisible(c){ return !c.lanes || c.lanes.indexOf(S.mode)>=0; }
+function currentChapter(){
+  if(!S.ui) S.ui={chapter:'setup'};
+  const c = CHAPTERS.find(function(x){return x.key===S.ui.chapter;});
+  if(!c || !chapterVisible(c)) S.ui.chapter='setup';
+  return S.ui.chapter;
+}
+function applyChapter(){
+  // shows/hides form cards ONLY — the preview keeps its own state and never follows chapters
+  const ch = currentChapter();
+  document.querySelectorAll('.card[data-ch]').forEach(function(el){
+    el.style.display = (el.dataset.ch===ch) ? '' : 'none';
+    if(el.dataset.ch===ch && el.classList.contains('collapsible')) el.classList.add('open');
+  });
+  if(ch==='site') skRedraw();
+  renderRail();
+}
+function setChapter(key){
+  if(!S.ui) S.ui={chapter:'setup'};
+  S.ui.chapter = key;
+  applyChapter();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+function renderRail(){
+  const el=document.getElementById('chapterRail'); if(!el) return;
+  const ch = currentChapter();
+  el.innerHTML = CHAPTERS.filter(chapterVisible).map(function(c){
+    return '<button class="rail-btn'+(c.key===ch?' active':'')+(c.internal?' internal':'')+'" title="'+c.label+'" onclick="setChapter(\''+c.key+'\')">'
+      +'<span class="n">'+c.n+'</span><span>'+c.label+'</span></button>';
+  }).join('') + '<div class="rail-note">Chapters mirror the client document. The preview stays on the full document — scroll it any time.</div>';
+}
+
 // ---------------- project library (named saves, live in Drive) ----------------
 function tbGo(id){
   const el=document.getElementById(id);
   if(!el) return;
+  if(el.dataset && el.dataset.ch){ if(!S.ui) S.ui={chapter:'setup'}; S.ui.chapter = el.dataset.ch; applyChapter(); }
   el.classList.remove('hidden');
   if(el.classList.contains('collapsible')) el.classList.add('open');
   if(id==='sketchCard') skRedraw();
@@ -2905,6 +2962,7 @@ function restore(){
     if(!Array.isArray(S.recipeLib)) S.recipeLib = [];
     if(!Array.isArray(S.extras)) S.extras = [];
     if(!Array.isArray(S.extrasLib)) S.extrasLib = [];
+    S.ui = Object.assign({chapter:'setup'}, saved.ui||{});
     S.rec = saved.rec ? Object.assign(blankRecipe(), saved.rec) : null;
     if(!Array.isArray(S.concept.pages)) S.concept.pages=[];
     if(!Array.isArray(S.fixedCosts) || !S.fixedCosts.length) S.fixedCosts = def.fixedCosts;
@@ -3661,6 +3719,8 @@ initSketch();
 renderConcept();
 renderRecipe(); renderRecipeLib();
 renderExtras();
+applyChapter();
+syncPvModeUI();
 syncFinanceInputs();
 refresh();
 loadHostedRates();
