@@ -2444,12 +2444,27 @@ function icSellExAuto(){
   const lo=Number(o.price_low_inc_gst)||0, hi=Number(o.price_high_inc_gst)||lo;
   return Math.round(((lo+hi)/2)/1.1);
 }
+// The internal costing is a LIVE VIEW of the quote — derived fresh on every read,
+// impossible to go stale. The only stored rows are PM extras added on top.
+function icExtras(){
+  if(!Array.isArray(S.ic.extraMats)) S.ic.extraMats=[];
+  if(!Array.isArray(S.ic.extraLabs)) S.ic.extraLabs=[];
+  if(!Array.isArray(S.ic.extraPasses)) S.ic.extraPasses=[];
+  return S.ic;
+}
+function icAll(){
+  const x = icExtras();
+  const d = computeAutoFill() || {mats:[], labs:[], passes:[]};
+  return {mats: d.mats.concat(x.extraMats), labs: d.labs.concat(x.extraLabs),
+          passes: d.passes.concat(x.extraPasses), derived: d};
+}
 function icTotals(){
-  const matT = S.ic.mats.reduce(function(a,m){ return a+(Number(m.qty)||0)*(Number(m.unit)||0); },0);
-  const labT = S.ic.labs.reduce(function(a,l){ return a+(Number(l.days)||0)*(Number(l.rate)||0); },0);
-  const labDays = S.ic.labs.reduce(function(a,l){ return a+(Number(l.days)||0); },0);
+  const all = icAll();
+  const matT = all.mats.reduce(function(a,m){ return a+(Number(m.qty)||0)*(Number(m.unit)||0); },0);
+  const labT = all.labs.reduce(function(a,l){ return a+(Number(l.days)||0)*(Number(l.rate)||0); },0);
+  const labDays = all.labs.reduce(function(a,l){ return a+(Number(l.days)||0); },0);
   let passCost=0, passCharge=0;
-  S.ic.passes.forEach(function(p){
+  all.passes.forEach(function(p){
     const c = Number(p.cost)||0;
     passCost += c;
     passCharge += p.type==='Subbie' ? c*(1+(Number(p.margin)||0)/100) : c;
@@ -2540,63 +2555,83 @@ function icDrift(){
   if(drift <= Math.max(auto.total, shown)*0.01) return null;
   return {shown:shown, auto:auto.total, drift:drift};
 }
-function rebuildCostings(){
-  S.icAuto = true;
-  autoFillInternal();
-  renderIcMat(); renderIcLab(); renderIcPass(); refresh();
-  notify('Costings rebuilt from the quote — every line re-derived from the current packages, rates and fixed costs.');
-}
-function autoFillInternal(){
-  if(!S.icAuto || S.mode!=='fixed') return;
-  const af = computeAutoFill();
-  if(!af) return;
-  const mats = af.mats, labs = af.labs, passes = af.passes;
-  S.ic.mats = mats.length?mats:[{item:'',supplier:'',stream:'',qty:'',unit:''}];
-  S.ic.labs = labs.length?labs:[{task:'',stream:'',days:'',rate:''}];
-  S.ic.passes = passes;
-}
+function autoFillInternal(){ /* costing is now fully derived — nothing to store */ }
 function renderIcMat(){
-  document.getElementById('icMatBody').innerHTML = S.ic.mats.map(function(m,i){
+  const all = icAll();
+  const derived = all.derived.mats.map(function(m){
+    const line = (Number(m.qty)||0)*(Number(m.unit)||0);
+    return `<tr style="color:var(--grey);">
+      <td style="padding-top:9px;">${esc(m.item)} <span style="font-size:9.5px;color:var(--mustard-deep);">auto</span></td>
+      <td></td><td style="padding-top:9px;">${esc(m.stream)}</td>
+      <td style="padding-top:9px;" class="r">${esc(m.qty)}</td>
+      <td style="padding-top:9px;" class="r">${fmt$2(m.unit)}</td>
+      <td style="padding-top:9px;">${fmt$2(line)}</td><td></td>
+    </tr>`; }).join('');
+  const extras = icExtras().extraMats.map(function(m,i){
     const line = (Number(m.qty)||0)*(Number(m.unit)||0);
     return `<tr>
-      <td><input type="text" value="${escA(m.item)}" oninput="S.icAuto=false; S.ic.mats[${i}].item=this.value" placeholder="H4 bearers 90×90"></td>
-      <td><input type="text" value="${escA(m.supplier)}" oninput="S.icAuto=false; S.ic.mats[${i}].supplier=this.value" placeholder="Bunnings / NCP"></td>
-      <td><input type="text" value="${escA(m.stream)}" oninput="S.icAuto=false; S.ic.mats[${i}].stream=this.value" placeholder="Deck"></td>
-      <td><input type="number" value="${escA(m.qty)}" oninput="S.icAuto=false; S.ic.mats[${i}].qty=this.value"></td>
-      <td><input type="number" value="${escA(m.unit)}" oninput="S.icAuto=false; S.ic.mats[${i}].unit=this.value"></td>
+      <td><input type="text" value="${escA(m.item)}" oninput="S.ic.extraMats[${i}].item=this.value" placeholder="H4 bearers 90×90"></td>
+      <td><input type="text" value="${escA(m.supplier)}" oninput="S.ic.extraMats[${i}].supplier=this.value" placeholder="Bunnings / NCP"></td>
+      <td><input type="text" value="${escA(m.stream)}" oninput="S.ic.extraMats[${i}].stream=this.value" placeholder="Deck"></td>
+      <td><input type="number" value="${escA(m.qty)}" oninput="S.ic.extraMats[${i}].qty=this.value"></td>
+      <td><input type="number" value="${escA(m.unit)}" oninput="S.ic.extraMats[${i}].unit=this.value"></td>
       <td style="padding-top:9px;">${fmt$2(line)}</td>
-      <td><button class="rm-btn" onclick="S.icAuto=false; S.ic.mats.splice(${i},1); if(!S.ic.mats.length) S.ic.mats.push({item:'',supplier:'',stream:'',qty:'',unit:''}); renderIcMat(); refresh();">✕</button></td>
+      <td><button class="rm-btn" onclick="S.ic.extraMats.splice(${i},1); renderIcMat(); refresh();">✕</button></td>
     </tr>`; }).join('');
+  document.getElementById('icMatBody').innerHTML = derived + extras
+    || '<tr><td colspan="7" style="color:var(--grey);font-style:italic;">Nothing yet — price the job and the materials appear here automatically.</td></tr>';
 }
-function addIcMat(){ S.icAuto=false; S.ic.mats.push({item:'',supplier:'',stream:'',qty:'',unit:''}); renderIcMat(); refresh(); }
+function addIcMat(){ icExtras().extraMats.push({item:'',supplier:'',stream:'',qty:'',unit:''}); renderIcMat(); refresh(); }
 function renderIcLab(){
-  document.getElementById('icLabBody').innerHTML = S.ic.labs.map(function(l,i){
+  const all = icAll();
+  const derived = all.derived.labs.map(function(l){
+    const line = (Number(l.days)||0)*(Number(l.rate)||0);
+    return `<tr style="color:var(--grey);">
+      <td style="padding-top:9px;">${esc(l.task)} <span style="font-size:9.5px;color:var(--mustard-deep);">auto</span></td>
+      <td style="padding-top:9px;">${esc(l.stream)}</td>
+      <td style="padding-top:9px;" class="r">${esc(l.days)}</td>
+      <td style="padding-top:9px;" class="r">${fmt$2(l.rate)}</td>
+      <td style="padding-top:9px;">${fmt$2(line)}</td><td></td>
+    </tr>`; }).join('');
+  const extras = icExtras().extraLabs.map(function(l,i){
     const line = (Number(l.days)||0)*(Number(l.rate)||0);
     return `<tr>
-      <td><input type="text" value="${escA(l.task)}" oninput="S.icAuto=false; S.ic.labs[${i}].task=this.value" placeholder="Deck install"></td>
-      <td><input type="text" value="${escA(l.stream)}" oninput="S.icAuto=false; S.ic.labs[${i}].stream=this.value" placeholder="Deck"></td>
-      <td><input type="number" value="${escA(l.days)}" oninput="S.icAuto=false; S.ic.labs[${i}].days=this.value"></td>
-      <td><input type="number" value="${escA(l.rate)}" oninput="S.icAuto=false; S.ic.labs[${i}].rate=this.value" placeholder="960"></td>
+      <td><input type="text" value="${escA(l.task)}" oninput="S.ic.extraLabs[${i}].task=this.value" placeholder="Deck install"></td>
+      <td><input type="text" value="${escA(l.stream)}" oninput="S.ic.extraLabs[${i}].stream=this.value" placeholder="Deck"></td>
+      <td><input type="number" value="${escA(l.days)}" oninput="S.ic.extraLabs[${i}].days=this.value"></td>
+      <td><input type="number" value="${escA(l.rate)}" oninput="S.ic.extraLabs[${i}].rate=this.value" placeholder="960"></td>
       <td style="padding-top:9px;">${fmt$2(line)}</td>
-      <td><button class="rm-btn" onclick="S.icAuto=false; S.ic.labs.splice(${i},1); if(!S.ic.labs.length) S.ic.labs.push({task:'',stream:'',days:'',rate:''}); renderIcLab(); refresh();">✕</button></td>
+      <td><button class="rm-btn" onclick="S.ic.extraLabs.splice(${i},1); renderIcLab(); refresh();">✕</button></td>
     </tr>`; }).join('');
+  document.getElementById('icLabBody').innerHTML = derived + extras;
 }
-function addIcLab(){ S.icAuto=false; S.ic.labs.push({task:'',stream:'',days:'',rate:''}); renderIcLab(); refresh(); }
+function addIcLab(){ icExtras().extraLabs.push({task:'',stream:'',days:'',rate:''}); renderIcLab(); refresh(); }
 function renderIcPass(){
-  document.getElementById('icPassBody').innerHTML = S.ic.passes.map(function(p,i){
+  const all = icAll();
+  const derived = all.derived.passes.map(function(p){
+    const charge = p.type==='Subbie' ? (Number(p.cost)||0)*(1+(Number(p.margin)||0)/100) : (Number(p.cost)||0);
+    return `<tr style="color:var(--grey);">
+      <td style="padding-top:9px;">${esc(p.label)} <span style="font-size:9.5px;color:var(--mustard-deep);">auto</span></td>
+      <td style="padding-top:9px;">${esc(p.type)}</td>
+      <td style="padding-top:9px;" class="r">${fmt$2(p.cost)}</td>
+      <td style="padding-top:9px;" class="r">${p.type==='Subbie'?esc(p.margin)+'%':'—'}</td>
+      <td style="padding-top:9px;">${fmt$2(charge)}</td><td></td>
+    </tr>`; }).join('');
+  const extras = icExtras().extraPasses.map(function(p,i){
     const charge = p.type==='Subbie' ? (Number(p.cost)||0)*(1+(Number(p.margin)||0)/100) : (Number(p.cost)||0);
     return `<tr>
-      <td><input type="text" value="${escA(p.label)}" oninput="S.icAuto=false; S.ic.passes[${i}].label=this.value" placeholder="Council fee / Sparky"></td>
-      <td><select onchange="S.icAuto=false; S.ic.passes[${i}].type=this.value; renderIcPass(); refresh();">
+      <td><input type="text" value="${escA(p.label)}" oninput="S.ic.extraPasses[${i}].label=this.value" placeholder="Council fee / Sparky"></td>
+      <td><select onchange="S.ic.extraPasses[${i}].type=this.value; renderIcPass(); refresh();">
         <option value="At-cost" ${p.type!=='Subbie'?'selected':''}>At-cost</option>
         <option value="Subbie" ${p.type==='Subbie'?'selected':''}>Subbie</option></select></td>
-      <td><input type="number" value="${escA(p.cost)}" oninput="S.icAuto=false; S.ic.passes[${i}].cost=this.value"></td>
-      <td><input type="number" value="${escA(p.margin)}" ${p.type!=='Subbie'?'disabled':''} oninput="S.icAuto=false; S.ic.passes[${i}].margin=this.value"></td>
+      <td><input type="number" value="${escA(p.cost)}" oninput="S.ic.extraPasses[${i}].cost=this.value"></td>
+      <td><input type="number" value="${escA(p.margin)}" ${p.type!=='Subbie'?'disabled':''} oninput="S.ic.extraPasses[${i}].margin=this.value"></td>
       <td style="padding-top:9px;">${fmt$2(charge)}</td>
-      <td><button class="rm-btn" onclick="S.icAuto=false; S.ic.passes.splice(${i},1); renderIcPass(); refresh();">✕</button></td>
+      <td><button class="rm-btn" onclick="S.ic.extraPasses.splice(${i},1); renderIcPass(); refresh();">✕</button></td>
     </tr>`; }).join('');
+  document.getElementById('icPassBody').innerHTML = derived + extras;
 }
-function addIcPass(){ S.icAuto=false; S.ic.passes.push({label:'',type:'At-cost',cost:'',margin:''}); renderIcPass(); refresh(); }
+function addIcPass(){ icExtras().extraPasses.push({label:'',type:'At-cost',cost:'',margin:''}); renderIcPass(); refresh(); }
 function renderIcSummary(){
   const t = icTotals();
   const gpClass = t.gpPct < 30 ? 'style="color:var(--red);"' : 'style="color:var(--green);"';
@@ -2618,17 +2653,11 @@ function renderIcSummary(){
   }
   const autoEl = document.getElementById('icAutoBadge');
   if(autoEl){
-    if(S.icAuto){
-      autoEl.innerHTML = '<span style="color:var(--green);font-size:11px;">● live — rebuilt from the quote automatically as you work</span>';
-    } else {
-      const d = icDrift();
-      const warn = d
-        ? '<div style="background:#fdeaea;border:1.5px solid var(--red);color:var(--red);padding:8px 12px;border-radius:6px;font-size:12px;font-weight:600;margin-bottom:6px;">⚠ OUT OF SYNC — the quote now says '+fmt$(d.auto)+' of cost, but this sheet still shows '+fmt$(d.shown)+'. These numbers are frozen from an earlier edit and are NOT following the quote.</div>'
-        : '<div style="font-size:11.5px;color:var(--mustard-deep);margin-bottom:6px;">● hand-edited — frozen. The quote no longer updates this sheet (currently still matching).</div>';
-      autoEl.innerHTML = warn
-        + '<button class="add-btn" style="margin-top:0;background:var(--mustard-deep);color:#fff;font-weight:700;" onclick="rebuildCostings()">⟳ Rebuild costings from the quote</button>'
-        + '<span style="font-size:10.5px;color:var(--grey);margin-left:8px;">re-derives every line from the current packages and rates — hand edits are discarded</span>';
-    }
+    const inC = S.bundles.filter(function(b){return b.inCost!==false;}).map(function(b){return b.name;});
+    const outC = S.bundles.filter(function(b){return b.inCost===false;}).map(function(b){return b.name;});
+    autoEl.innerHTML = '<span style="color:var(--green);font-size:11px;">● live view — every grey "auto" row is derived from the quote right now; it can never go stale. Your own rows (the editable ones) sit underneath.</span>'
+      + (inC.length ? '<div style="font-size:11px;color:var(--grey);margin-top:3px;">In costings: <strong>'+inC.map(esc).join(' · ')+'</strong>'
+        + (outC.length ? ' — excluded alternatives: '+outC.map(esc).join(' · ') : '')+'</div>' : '');
   }
   const warns = [];
   if(t.sellEx>0 && t.totalCost>0 && t.gpPct < 35) warns.push('GP is '+t.gpPct.toFixed(1)+'% — below the 35% target.');
@@ -2656,7 +2685,8 @@ function renderIcFiles(){
 function pvInternal(){
   const t = icTotals();
   // Materials grouped by stream/type, with a subtotal per type when there's more than one
-  const matsF = S.ic.mats.filter(function(m){return m.item;});
+  const _all = icAll();
+  const matsF = _all.mats.filter(function(m){return m.item;});
   const matStreams = [];
   matsF.forEach(function(m){ const s=m.stream||'Other'; if(matStreams.indexOf(s)<0) matStreams.push(s); });
   let matRows='';
@@ -2669,9 +2699,9 @@ function pvInternal(){
       matRows += '<tr><td colspan="5" style="font-weight:600;color:#666;">'+esc(s)+' — subtotal</td><td class="r" style="font-weight:600;color:#666;">'+fmt$2(sub)+'</td></tr>';
     }
   });
-  const labRows = S.ic.labs.filter(function(l){return l.task;}).map(function(l){
+  const labRows = _all.labs.filter(function(l){return l.task;}).map(function(l){
     return '<tr><td>'+esc(l.task)+'</td><td>'+esc(l.stream)+'</td><td class="r">'+esc(l.days)+'</td><td class="r">'+fmt$2(l.rate)+'</td><td class="r">'+fmt$2((Number(l.days)||0)*(Number(l.rate)||0))+'</td></tr>'; }).join('');
-  const passRows = S.ic.passes.filter(function(p){return p.label;}).map(function(p){
+  const passRows = _all.passes.filter(function(p){return p.label;}).map(function(p){
     const charge = p.type==='Subbie' ? (Number(p.cost)||0)*(1+(Number(p.margin)||0)/100) : (Number(p.cost)||0);
     return '<tr><td>'+esc(p.label)+'</td><td>'+esc(p.type)+'</td><td class="r">'+fmt$2(p.cost)+'</td><td class="r">'+(p.type==='Subbie'?esc(p.margin)+'%':'—')+'</td><td class="r">'+fmt$2(charge)+'</td></tr>'; }).join('');
   const gpCls = t.gpPct < 30 ? 'bad' : 'good';
@@ -2855,7 +2885,6 @@ function refresh(){
   if(ae0 && ae0.id==='ic_sell'){ const v=val('ic_sell'); S.ic.sellOv = (v!=='' && Number(v)!==icSellExAuto()) ? Number(v) : null; }
   if(val('ic_comm_pct')!=='') S.ic.commPct = Number(val('ic_comm_pct'));
 
-  autoFillInternal();
   renderStdLines(); refreshTotals(); checkPaymentTotal();
   renderIcSummary();
   clearTimeout(refreshTimer);
@@ -2875,7 +2904,7 @@ function refresh(){
     if(!ae || !ae.closest || !ae.closest('#fixedCostsBody')) renderFixedCosts();
     if(!ae || !ae.closest || !ae.closest('#calcExtrasPane')) renderEx();
     if(!ae || !ae.closest || !ae.closest('#financeBody')) renderFinanceRow();
-    if(S.icAuto && S.mode==='fixed' && (!ae || !ae.closest || !ae.closest('#icMatBody')) && (!ae || !ae.closest || !ae.closest('#icLabBody')) && (!ae || !ae.closest || !ae.closest('#icPassBody'))){ renderIcMat(); renderIcLab(); renderIcPass(); }
+    if((!ae || !ae.closest || !ae.closest('#icMatBody')) && (!ae || !ae.closest || !ae.closest('#icLabBody')) && (!ae || !ae.closest || !ae.closest('#icPassBody'))){ renderIcMat(); renderIcLab(); renderIcPass(); }
     renderPreview();
     autosave();
   }, 250);
@@ -3022,7 +3051,9 @@ function restore(){
     S.ed = Object.assign({extras:[], editingName:null, origBoard:null}, saved.ed||{});
     if(!Array.isArray(S.ed.extras)) S.ed.extras = [];
     S.ops = Object.assign({notes:'', tab:'notes'}, saved.ops||{});
-    S.ic = Object.assign({mats:[{item:'',supplier:'',stream:'',qty:'',unit:''}], labs:[{task:'',stream:'',days:'',rate:''}], passes:[], commPct:10, sellOv:null, attachments:[]}, saved.ic||{});
+    S.ic = Object.assign({mats:[], labs:[], passes:[], extraMats:[], extraLabs:[], extraPasses:[], commPct:10, sellOv:null, attachments:[]}, saved.ic||{});
+    ['extraMats','extraLabs','extraPasses'].forEach(function(k){ if(!Array.isArray(S.ic[k])) S.ic[k]=[]; });
+    S.icAuto = true;  // legacy latch — costing is now always derived live
     S.sketch = Object.assign({ops:[], bg:null, grid:true}, saved.sketch||{});
     if(!Array.isArray(S.ic.attachments)) S.ic.attachments = [];
     if(!Array.isArray(S.bundles)) S.bundles = [];
@@ -3116,9 +3147,9 @@ function buildInternalPayload(t, clientName){
     sell_override: S.ic.sellOv!==null,
     costings_sheet_url: val('ic_sheet_url') || null,
     ops_notes: val('ops_notes') || '',
-    materials: S.ic.mats.filter(function(m){return m.item;}),
-    labour: S.ic.labs.filter(function(l){return l.task;}),
-    pass_throughs: S.ic.passes.filter(function(p){return p.label;}),
+    materials: icAll().mats.filter(function(m){return m.item;}),
+    labour: icAll().labs.filter(function(l){return l.task;}),
+    pass_throughs: icAll().passes.filter(function(p){return p.label;}),
     commission: {basis:'% of GP', pct:Number(S.ic.commPct)||0, amount:+t.commission.toFixed(2)},
     summary: {materials_total:+t.matT.toFixed(2), labour_total:+t.labT.toFixed(2), labour_days:t.labDays,
       pass_through_cost:+t.passCost.toFixed(2), pass_through_charge:+t.passCharge.toFixed(2),
