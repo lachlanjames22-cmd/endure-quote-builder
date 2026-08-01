@@ -540,8 +540,14 @@ def page_your_project(d, n, status_label):
     for it in items:
         bul = ''.join(f'<li>{b}</li>' for b in it.get('bullets', []))
         label_row = f'<div class="yp-item-label">{it["label"]}</div>' if it.get('label') and len(items) > 1 else ''
-        price_html = (f'<div class="yp-price">{fmt_money(it["price_inc_gst"], 2)} <span class="lab">INC GST</span></div>'
-                      if it.get('price_inc_gst') not in (None, '') else '')
+        if it.get('price_inc_gst') in (None, ''):
+            price_html = ''
+        elif it.get('price_display') == 'ex':
+            # hero card shows the ex-GST figure; totals elsewhere still carry both
+            ex = it.get('price_ex_gst') or round(float(it['price_inc_gst']) / 1.1)
+            price_html = f'<div class="yp-price">{fmt_money(ex, 2)} <span class="lab">EX GST</span></div>'
+        else:
+            price_html = f'<div class="yp-price">{fmt_money(it["price_inc_gst"], 2)} <span class="lab">INC GST</span></div>'
         cards.append(f'''<div class="yp-card{compact}">
     <div class="yp-img"><img src="{img_src(it.get("image",""))}"></div>
     <div class="yp-body">
