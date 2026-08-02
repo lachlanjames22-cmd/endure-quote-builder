@@ -272,7 +272,7 @@ function buildBallparkJob(){
     status_label:'Ballpark Estimate', eyebrow_tag:'Ballpark Estimate · Range Only',
     lead:{email:document.getElementById('em').value.trim(), source:'', lane:S.lane},
     ballpark_next:{lane:S.lane, consult_fee_ex_gst:200,
-      contact:{phone:'0400 000 000', email:'matt@enduredecks.com.au'}, stripe_url:''},
+      contact:{phone:'', email:'matt@enduredecks.com.au'}, stripe_url:''},
     range:{
       options:[{label:o.label+' deck', image:IMG[o.key]||'', size_label:'approx. '+o.area+'m²'+(S.h==='raised'?', raised':''),
         price_low_inc_gst:o.lo, price_high_inc_gst:o.hi,
