@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Endure — Ballpark Calculator</title>
+<style>
+:root{ --cream:#F7F1E4; --ink:#1A1815; --grey:#6e6e6e; --rule:#e3dccf; --mustard:#C09A45; --mdeep:#B7872F; --card:#fffdf8; --green:#2f8e4e; --red:#b3392c; }
+*{box-sizing:border-box;}
+body{margin:0;background:var(--cream);color:var(--ink);font-family:'Segoe UI',Arial,sans-serif;font-size:13px;}
+.top{background:var(--ink);color:var(--cream);padding:12px 20px;display:flex;align-items:center;gap:12px;}
+.top .badge{border:1px solid var(--mdeep);color:var(--mdeep);padding:4px 10px;font-size:11px;font-weight:700;letter-spacing:.14em;}
+.top .t{font-family:'EB Garamond',Georgia,serif;font-size:18px;}
+.wrap{max-width:960px;margin:0 auto;padding:18px 18px 60px;display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;}
+.col{flex:1;min-width:320px;}
+.card{background:var(--card);border:1px solid var(--rule);border-radius:8px;padding:16px 18px;margin-bottom:14px;}
+.card h2{font-size:13px;margin:0 0 4px;color:var(--mdeep);text-transform:uppercase;letter-spacing:.06em;}
+.card .d{color:var(--grey);font-size:11.5px;margin:0 0 12px;}
+label{display:block;font-weight:600;font-size:11.5px;margin:8px 0 3px;}
+input[type=text],input[type=email],input[type=number],select{width:100%;padding:8px 9px;border:1px solid var(--rule);border-radius:6px;font-size:13px;background:#fff;color:var(--ink);font-family:inherit;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;}
+.seg{display:flex;border:1px solid var(--rule);border-radius:6px;overflow:hidden;}
+.seg button{flex:1;border:none;background:#fff;color:var(--grey);padding:8px 4px;font-size:12px;cursor:pointer;font-family:inherit;}
+.seg button.on{background:var(--mdeep);color:#fff;font-weight:700;}
+.hint{font-size:10.5px;color:var(--grey);font-weight:400;margin-top:2px;}
+.lanehint{font-size:11px;color:var(--mdeep);font-weight:600;margin-top:4px;display:none;}
+.range-out{background:var(--ink);color:var(--cream);border-radius:8px;padding:18px 20px;text-align:center;}
+.range-out .eyebrow{font-size:10px;letter-spacing:.2em;color:var(--mustard);text-transform:uppercase;}
+.range-out .big{font-family:'EB Garamond',Georgia,serif;font-size:34px;margin:6px 0 2px;color:#fff;}
+.range-out .sub{font-size:11px;color:#bdb8a8;}
+.range-out .note{font-size:11px;color:var(--mustard);margin-top:8px;}
+.btn{display:block;width:100%;border:none;border-radius:6px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:8px;}
+.btn.primary{background:var(--mdeep);color:#fff;}
+.btn.secondary{background:#fff;border:1px solid var(--mdeep);color:var(--mdeep);}
+.status{font-size:11.5px;margin-top:8px;color:var(--grey);min-height:16px;}
+.status.ok{color:var(--green);font-weight:600;}
+textarea{width:100%;min-height:180px;border:1px solid var(--rule);border-radius:6px;padding:9px;font-size:12px;font-family:inherit;margin-top:8px;}
+.hidden{display:none;}
+.steps{font-size:11.5px;color:var(--grey);line-height:1.7;}
+.steps b{color:var(--ink);}
+</style>
+</head>
+<body>
+<div class="top"><span class="badge">ENDURE DECKS</span><span class="t">Ballpark calculator</span>
+<span style="margin-left:auto;font-size:11px;color:#bdb8a8;">Ranges match enduredecks.com.au/pricing</span></div>
+<div style="background:repeating-linear-gradient(45deg,#B7872F,#B7872F 14px,#1A1815 14px,#1A1815 28px);padding:2px;">
+  <div style="background:#FFF2B3;color:#1A1815;text-align:center;padding:7px 12px;font-weight:700;font-size:12.5px;letter-spacing:.04em;">
+    🚧 UNDER CONSTRUCTION — internal preview. Play with it, send nothing to clients without checking the PDF first. Email sending isn't wired up yet (use Copy email).
+  </div>
+</div>
+<div class="wrap">
+
+  <div class="col">
+    <div class="card">
+      <h2>The lead</h2>
+      <div class="grid2">
+        <div><label>Client name</label><input type="text" id="nm" placeholder="Sarah Mitchell"></div>
+        <div><label>Suburb</label><input type="text" id="sb" placeholder="Karrinyup"></div>
+        <div style="grid-column:1/3;"><label>Email</label><input type="email" id="em" placeholder="sarah@..."></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>The deck</h2>
+      <div class="grid2">
+        <div><label>Approx. size (m²)</label><input type="number" id="area" value="30" min="5" max="150"></div>
+        <div><label>Board</label>
+          <select id="board">
+            <option value="merbau">Merbau</option>
+            <option value="jarrah">Jarrah</option>
+            <option value="spotted">Spotted Gum</option>
+            <option value="blackbutt">Blackbutt</option>
+            <option value="evainf">Eva-Last Infinity</option>
+            <option value="moisture">MoistureShield</option>
+            <option value="trex">Trex Transcend</option>
+            <option value="pioneer">Eva-Last Pioneer</option>
+            <option value="ns_timber">Not sure — timber</option>
+            <option value="ns_comp">Not sure — composite</option>
+          </select></div>
+        <div><label>Height</label>
+          <div class="seg" id="segH"><button class="on" data-v="ground">Ground level</button><button data-v="raised">Raised</button></div></div>
+        <div><label>Access</label>
+          <div class="seg" id="segA"><button class="on" data-v="std">Standard</button><button data-v="tricky">Tricky</button></div></div>
+        <div><label>Old deck to remove?</label>
+          <div class="seg" id="segD"><button class="on" data-v="no">No</button><button data-v="yes">Yes</button></div></div>
+        <div><label>Next step lane</label>
+          <div class="seg" id="segL"><button class="on" data-v="standard">Standard</button><button data-v="complex">Complex</button></div>
+          <div class="lanehint" id="laneHint">Big / raised job — consider the Complex lane (consult + design service).</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>How Matt uses this</h2>
+      <div class="steps">
+        <b>1.</b> Punch in the lead — 30 seconds.<br>
+        <b>2.</b> <b>Copy email</b> → paste into Gmail.<br>
+        <b>3.</b> <b>Download ballpark file</b> → attach it in the Claude chat, say “render the ballpark” → attach the PDF to the email. Send.<br>
+        <span style="color:var(--mdeep);">When this ships to the server, steps 2–3 become one Send button.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="range-out">
+      <div class="eyebrow">Ballpark range · inc GST</div>
+      <div class="big" id="rangeBig">$13,000 – $16,000</div>
+      <div class="sub" id="rangeSub">Merbau · approx. 30m² · supplied &amp; installed</div>
+      <div class="note" id="rangeNote"></div>
+    </div>
+    <div class="card" style="margin-top:14px;">
+      <h2>Send it</h2>
+      <p class="d">Exact price is set at the site consult — $220 inc GST, credited off the build.</p>
+      <button class="btn primary" onclick="generatePdf()">Generate branded PDF</button>
+      <button class="btn primary" id="btnEmail" style="background:#1A1815;" onclick="copyEmail()">Copy email</button>
+      <button class="btn secondary" onclick="downloadJob()">Download ballpark file (job data)</button>
+      <div class="status" id="st"></div>
+      <div id="manualCopy" class="hidden">
+        <div style="font-size:11px;color:var(--grey);">Clipboard blocked — select all &amp; copy:</div>
+        <textarea id="emailTxt" readonly onclick="this.select()"></textarea>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Send email <span style="color:var(--grey);font-weight:400;text-transform:none;">— not wired up yet</span></h2>
+      <p class="d">This form is the future one-click send (from sales@enduredecks.com.au with the PDF attached). It's here so the workflow is visible — the button explains itself until the server side ships.</p>
+      <label>To</label><input type="email" id="sendTo" placeholder="(auto from lead email)">
+      <label>Subject</label><input type="text" id="sendSubject">
+      <label>Body</label><textarea id="sendBody" style="min-height:150px;"></textarea>
+      <button class="btn secondary" onclick="prefillSend()">↺ Prefill from this lead</button>
+      <button class="btn primary" onclick="sendBallparkEmail()">Send from sales@ (coming soon)</button>
+      <div class="status" id="sendSt"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+// Hosted config — same pattern as the builder page.
+const ENDURE_ENDPOINT = window.ENDURE_ENDPOINT || '/api/endure';
+const TEAM_TOKEN = 'endure-decks-2026';
+/* Pricing anchors — FROM THE PUBLISHED PRICING PAGE (2026 tables, $ inc GST).
+   Keep these identical to enduredecks.com.au/pricing. When the rate card or
+   site tables change, change BOTH. Anchors at 20 / 30 / 40 / 50 m². */
+const TABLE = {
+  merbau:   {label:'Merbau',            lo:[10000,13000,16000,19000], hi:[13000,16000,20000,23000]},
+  jarrah:   {label:'Jarrah',            lo:[12000,16000,20000,24000], hi:[15000,20000,25000,29000]},
+  spotted:  {label:'Spotted Gum',       lo:[13000,17000,22000,26000], hi:[16000,22000,27000,32000]},
+  blackbutt:{label:'Blackbutt',         lo:[13000,18000,22000,27000], hi:[16000,22000,28000,33000]},
+  evainf:   {label:'Eva-Last Infinity', lo:[12000,16000,20000,24000], hi:[16000,20000,25000,30000]},
+  trex:     {label:'Trex Transcend',    lo:[15000,20000,25000,31000], hi:[19000,25000,32000,38000]},
+  moisture: {label:'MoistureShield',    lo:[14000,19000,24000,29000], hi:[18000,24000,30000,36000]},
+  pioneer:  {label:'Eva-Last Pioneer',  lo:[16000,21000,27000,33000], hi:[20000,27000,34000,41000]},
+};
+const IMG = {merbau:'merbau.jpg', jarrah:'jarrah.jpg', spotted:'spottedgum.jpg', blackbutt:'blackbutt.jpg',
+             evainf:'evainf.jpg', trex:'trex.jpg', moisture:'moisture.jpg', pioneer:'evapio.jpg',
+             ns_timber:'merbau.jpg', ns_comp:'trex.jpg'};
+const ANCH = [20,30,40,50];
+const S = {h:'ground', a:'std', d:'no', lane:'standard'};
+
+function seg(id, key){
+  document.getElementById(id).addEventListener('click', e=>{
+    const b = e.target.closest('button'); if(!b) return;
+    [...e.currentTarget.children].forEach(x=>x.classList.toggle('on', x===b));
+    S[key] = b.dataset.v; calc();
+  });
+}
+seg('segH','h'); seg('segA','a'); seg('segD','d'); seg('segL','lane');
+
+function interp(vals, area){
+  if(area <= 20) return vals[0];
+  if(area >= 50){                       // extrapolate on the 40→50 slope
+    const slope = (vals[3]-vals[2]) / 10;
+    return vals[3] + slope*(area-50);
+  }
+  let i = 0;
+  while(ANCH[i+1] < area) i++;
+  const t = (area-ANCH[i]) / (ANCH[i+1]-ANCH[i]);
+  return vals[i] + t*(vals[i+1]-vals[i]);
+}
+function boardBounds(key, area){
+  if(key === 'ns_timber')  return {lo: interp(TABLE.merbau.lo, area), hi: interp(TABLE.blackbutt.hi, area), label:'Timber (board TBC)'};
+  if(key === 'ns_comp')    return {lo: interp(TABLE.evainf.lo, area), hi: interp(TABLE.pioneer.hi, area), label:'Composite (board TBC)'};
+  const t = TABLE[key];
+  return {lo: interp(t.lo, area), hi: interp(t.hi, area), label: t.label};
+}
+function calc(){
+  const area = Math.max(5, Number(document.getElementById('area').value)||30);
+  const key = document.getElementById('board').value;
+  const b = boardBounds(key, area);
+  let lo = b.lo, hi = b.hi;
+  const notes = [];
+  if(area < 20){ notes.push('Under ~20m² a small-job loading applies — priced at consult.'); }
+  if(S.h === 'raised'){ lo *= 1.12; hi *= 1.12; notes.push('Raised: +12% allowed.'); }
+  if(S.a === 'tricky'){ lo *= 1.05; hi *= 1.08; notes.push('Tricky access allowed for.'); }
+  if(S.d === 'yes'){ const demo = area*35 + 200; lo += demo; hi += demo; notes.push('Includes old-deck removal allowance.'); }
+  lo = Math.floor(lo/500)*500; hi = Math.ceil(hi/500)*500;
+  const laneHint = document.getElementById('laneHint');
+  laneHint.style.display = (area >= 45 || (S.h==='raised' && S.a==='tricky')) && S.lane==='standard' ? 'block' : 'none';
+  const out = {lo, hi, area, key, label: b.label, notes};
+  document.getElementById('rangeBig').textContent = fmt(lo)+' – '+fmt(hi);
+  document.getElementById('rangeSub').innerHTML = esc(b.label)+' · approx. '+area+'m²'+(S.h==='raised'?' · raised':'')+' · supplied &amp; installed';
+  document.getElementById('rangeNote').textContent = notes.join(' ');
+  window.__last = out;
+  return out;
+}
+const fmt = n => '$' + Math.round(n).toLocaleString('en-AU');
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+document.getElementById('area').addEventListener('input', calc);
+document.getElementById('board').addEventListener('change', calc);
+
+function firstName(){ return (document.getElementById('nm').value.trim().split(/\s+/)[0]) || 'there'; }
+function emailText(){
+  const o = calc(), nm = document.getElementById('nm').value.trim() || 'there', sb = document.getElementById('sb').value.trim();
+  const nextStep = S.lane === 'standard'
+    ? "It's a range, not a quote — access, levels and final board choice move the number. One 45-minute site consult locks it to a fixed price within 48 hours (simple jobs often get it on the spot). The consult is $220, and it comes straight off your build if you go ahead."
+    : "It's a range, not a quote — projects like yours are the detailed kind, so the path to a fixed price starts with a 45-minute site consult ($220, credited off your build), then working drawings or a design pack so the scope is locked before we price it to the dollar.";
+  return {
+    subject: 'Your ballpark for the deck — ' + (nm.split(/\s+/)[0]) + (sb ? ', ' + sb : ''),
+    body: 'Hi ' + firstName() + ',\n\n'
+      + 'Thanks for reaching out. Attached is a ballpark for your deck — roughly ' + o.area + 'm² in ' + o.label
+      + ', it typically lands between ' + fmt(o.lo) + ' and ' + fmt(o.hi) + ' installed. '
+      + 'The document explains what’s included, how we build, and what to ask any builder quoting your deck (including us).\n\n'
+      + nextStep + '\n\n'
+      + 'Want me to pencil you in this week?\n\n'
+      + 'Matt — Endure Decks\nenduredecks.com.au/pricing'
+  };
+}
+async function copyEmail(){
+  const e = emailText(), txt = 'Subject: ' + e.subject + '\n\n' + e.body;
+  const st = document.getElementById('st');
+  try{
+    await navigator.clipboard.writeText(txt);
+    st.className = 'status ok'; st.textContent = 'Email copied — paste into Gmail, attach the PDF, send.';
+  }catch(err){
+    const ta = document.getElementById('emailTxt');
+    document.getElementById('manualCopy').classList.remove('hidden');
+    ta.value = txt; ta.select();
+    try{ document.execCommand('copy'); st.className='status ok'; st.textContent='Email copied — paste into Gmail.'; }
+    catch(e2){ st.className='status'; st.textContent='Select the text below and copy it.'; }
+  }
+}
+function buildBallparkJob(){
+  const o = calc(), nm = document.getElementById('nm').value.trim() || 'Client';
+  const sb = document.getElementById('sb').value.trim();
+  const today = new Date().toLocaleDateString('en-AU', {day:'numeric', month:'long', year:'numeric'});
+  const job = {
+    mode:'range', ballpark:true,
+    client_name:nm,
+    cover_subtitle:'A ballpark for your ~'+o.area+'m² '+o.label+' deck'+(sb?' in '+sb:'')+' — so you know where you stand before we measure a thing.',
+    prepared_for:nm, location:sb||'Perth', proposal_date:today,
+    status_label:'Ballpark Estimate', eyebrow_tag:'Ballpark Estimate · Range Only',
+    lead:{email:document.getElementById('em').value.trim(), source:'', lane:S.lane},
+    ballpark_next:{lane:S.lane, consult_fee_ex_gst:200,
+      contact:{phone:'0400 000 000', email:'matt@enduredecks.com.au'}, stripe_url:''},
+    range:{
+      options:[{label:o.label+' deck', image:IMG[o.key]||'', size_label:'approx. '+o.area+'m²'+(S.h==='raised'?', raised':''),
+        price_low_inc_gst:o.lo, price_high_inc_gst:o.hi,
+        price_low_ex_gst:Math.round(o.lo/1.1), price_high_ex_gst:Math.round(o.hi/1.1),
+        spec_line:'Supplied & installed to the Endure 20-Year Standard — subframe, boards, finish and site clean included.'+(S.d==='yes'?' Old-deck removal allowed for.':''),
+        eyebrow:'Ballpark Range'}],
+      alt_materials:[],
+      scope_items:[
+        {label:'Full supply & install — subframe, boards, fixings, finish', value:'Included'},
+        {label:'Site clean & rubbish removal', value:'Included'},
+        {label:'Built to the Endure 20-Year Standard', value:'Every job'},
+        {label:'Exact price', value:'Set at your site consult', strong:true}],
+      preliminary_note:'This is a ballpark, not a quote — it’s built from your rough dimensions using the same rates we price every job with, and matches the ranges published at enduredecks.com.au/pricing. '+(o.notes.length?o.notes.join(' ')+' ':'')+'One site consult locks it to a fixed price that doesn’t change.',
+      consult_fee_paid:0,
+      design_service_tiers:[
+        {name:'Working Drawings', description:'Plans + quantities — enough detail to lock scope and return a fixed price.', price_ex_gst:800, credit_consult:true},
+        {name:'Design Pack', description:'Plans, 3D renders + moodboard — see it before you build it.', price_ex_gst:2200, credit_consult:false},
+        {name:'Landscape Concept Design', description:'Full outdoor concept across the whole site — deck, landscaping and hardscape planned as one.', price_ex_gst:3500, credit_consult:true}]
+    }
+  };
+  return job;
+}
+function slugName(){
+  return (document.getElementById('nm').value.trim().replace(/[^A-Za-z0-9]+/g,'_') || 'Client');
+}
+function downloadJob(){
+  const job = buildBallparkJob();
+  const blob = new Blob([JSON.stringify(job, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = slugName() + '_ballpark.json';
+  a.click(); URL.revokeObjectURL(a.href);
+  const st = document.getElementById('st');
+  st.className='status ok'; st.textContent='Ballpark job file downloaded.';
+}
+async function generatePdf(){
+  const st = document.getElementById('st');
+  st.className='status'; st.textContent='Rendering PDF…';
+  try{
+    const res = await fetch(ENDURE_ENDPOINT, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({action:'render', token:TEAM_TOKEN, job_data:buildBallparkJob()})});
+    const ct = res.headers.get('Content-Type')||'';
+    if(ct.indexOf('application/pdf')===-1){
+      let msg='Render failed ('+res.status+')';
+      try{ const j=await res.json(); if(j&&j.error) msg=j.error; }catch(e2){}
+      throw new Error(msg);
+    }
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = slugName() + '_Ballpark.pdf';
+    a.click(); URL.revokeObjectURL(a.href);
+    st.className='status ok'; st.textContent='Ballpark PDF downloaded — flick through it before it goes anywhere.';
+  }catch(e){
+    st.className='status'; st.style.color='var(--red)';
+    st.textContent='PDF failed: '+e.message;
+    setTimeout(()=>{ st.style.color=''; }, 4000);
+  }
+}
+function prefillSend(){
+  const e = emailText();
+  const to = document.getElementById('em').value.trim();
+  if(to) document.getElementById('sendTo').value = to;
+  document.getElementById('sendSubject').value = e.subject;
+  document.getElementById('sendBody').value = e.body;
+  const st = document.getElementById('sendSt');
+  st.className='status ok'; st.textContent='Prefilled — edit freely.';
+}
+async function sendBallparkEmail(){
+  // Future: server sends from sales@ with the PDF attached and logs the lead
+  // stage. Until action:'send_ballpark' exists server-side, this degrades to
+  // a clear explanation rather than a dead button.
+  const st = document.getElementById('sendSt');
+  st.className='status'; st.textContent='Trying…';
+  try{
+    const res = await fetch(ENDURE_ENDPOINT, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({action:'send_ballpark', token:TEAM_TOKEN,
+        to:document.getElementById('sendTo').value.trim(),
+        subject:document.getElementById('sendSubject').value,
+        body:document.getElementById('sendBody').value,
+        job_data:buildBallparkJob()})});
+    const j = await res.json().catch(()=>null);
+    if(j && j.ok){ st.className='status ok'; st.textContent='Sent from sales@ — logged against the lead.'; return; }
+    st.className='status';
+    st.textContent='Sending isn’t wired up yet — coming in the next update. Use Copy email + Generate PDF for now.';
+  }catch(e){
+    st.className='status';
+    st.textContent='Sending isn’t wired up yet — coming in the next update. Use Copy email + Generate PDF for now.';
+  }
+}
+calc();
+</script>
+</body>
+</html>
