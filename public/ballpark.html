@@ -124,13 +124,13 @@ textarea{width:100%;min-height:180px;border:1px solid var(--rule);border-radius:
       </div>
     </div>
     <div class="card">
-      <h2>Send email <span style="color:var(--grey);font-weight:400;text-transform:none;">— not wired up yet</span></h2>
-      <p class="d">This form is the future one-click send (from sales@enduredecks.com.au with the PDF attached). It's here so the workflow is visible — the button explains itself until the server side ships.</p>
+      <h2>Send email</h2>
+      <p class="d">Sends from Matt\u2019s address with the branded ballpark PDF attached, BCC to the shared inbox, and logs the lead. Prefill, tweak the words, send.</p>
       <label>To</label><input type="email" id="sendTo" placeholder="(auto from lead email)">
       <label>Subject</label><input type="text" id="sendSubject">
       <label>Body</label><textarea id="sendBody" style="min-height:150px;"></textarea>
       <button class="btn secondary" onclick="prefillSend()">↺ Prefill from this lead</button>
-      <button class="btn primary" onclick="sendBallparkEmail()">Send from sales@ (coming soon)</button>
+      <button class="btn primary" onclick="sendBallparkEmail()">Send — PDF attached</button>
       <div class="status" id="sendSt"></div>
     </div>
   </div>
@@ -365,9 +365,13 @@ async function sendBallparkEmail(){
         body:document.getElementById('sendBody').value,
         job_data:buildBallparkJob()})});
     const j = await res.json().catch(()=>null);
-    if(j && j.ok){ st.className='status ok'; st.textContent='Sent from sales@ — logged against the lead.'; return; }
+    if(j && j.ok){
+      st.className='status ok';
+      st.textContent='Sent from '+(j.from||'Matt’s address')+(j.attached?' with the PDF attached':'')+(j.logged?' — lead logged.':'.');
+      return;
+    }
     st.className='status';
-    st.textContent='Sending isn’t wired up yet — coming in the next update. Use Copy email + Generate PDF for now.';
+    st.textContent = (j && j.error) ? j.error : 'Send failed — use Copy email + Generate PDF as the fallback.';
   }catch(e){
     st.className='status';
     st.textContent='Sending isn’t wired up yet — coming in the next update. Use Copy email + Generate PDF for now.';
