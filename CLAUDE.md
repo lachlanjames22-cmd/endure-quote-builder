@@ -71,7 +71,7 @@ internal-costing.json, site photos). Deploys to **quote.enduredecks.com.au**.
 - Header bar (2026-07-30): sticky black topbar — logo, Build / Library /
   Contracts & templates dropdowns, Save project button.
 - Ballpark lane (Cowork-built, ported 2026-08-02): /ballpark calculator page
-  (🚧 banner, under construction by design) + `ballpark:true` job-data flag
+  (🚧 banner removed 2026-08-02 — live for real use) + `ballpark:true` job-data flag
   routing render_proposal.py to a 4-page range-estimate doc (cover, why-a-range,
   range card, consult next-step; complex lane adds design tiers). Email send
   (`action:'send_ballpark'`, wired 2026-08-02 with Lachy): sends FROM Matt's
