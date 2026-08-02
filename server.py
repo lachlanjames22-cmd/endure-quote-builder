@@ -421,13 +421,17 @@ def _gmail_send(msg):
 def _gmail_err(e):
     s = str(e)
     try:
-        cid = json.loads(os.environ.get("GOOGLE_SERVICE_ACCOUNT", "")).get("client_id", "")
+        info = json.loads(os.environ.get("GOOGLE_SERVICE_ACCOUNT", ""))
     except Exception:  # noqa: BLE001
-        cid = ""
+        info = {}
+    cid = info.get("client_id", "")
+    proj = info.get("project_id", "")
     if "accessNotConfigured" in s or "has not been used" in s or "is disabled" in s:
-        return ("Gmail API isn't enabled in the service account's Google Cloud project — "
-                "enable it at https://console.cloud.google.com/apis/library/gmail.googleapis.com "
-                "(same project as the Drive/Sheets APIs), wait a minute, then retry")
+        return ("Gmail API isn't enabled in the service account's own project"
+                + (f" ('{proj}')" if proj else "") + " — enable it at "
+                "https://console.cloud.google.com/apis/library/gmail.googleapis.com"
+                + (f"?project={proj}" if proj else "") +
+                f" then wait 2–3 minutes and retry. Google's exact words: {s[:300]}")
     if "unauthorized_client" in s or "access_denied" in s or "Precondition" in s:
         return (f"the service account isn't authorised to send as {SEND_USER}. In "
                 "admin.google.com → Security → Access and data control → API controls → "
