@@ -404,6 +404,26 @@ def log_quote(body, folder_url):
 
 
 # ── ballpark email send (from Matt's address, BCC to the shared inbox) ──────
+def _smtp_send(msg):
+    # 465/SSL first; if that port is filtered (connection hangs/refused), retry
+    # on 587/STARTTLS before giving up. Timeouts keep a blocked port from
+    # hanging the request forever.
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as smtp:
+            smtp.login(SEND_USER, SEND_PASS)
+            smtp.send_message(msg)
+            return
+    except smtplib.SMTPAuthenticationError:
+        raise
+    except (TimeoutError, OSError, smtplib.SMTPException):
+        pass
+    with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as smtp:
+        smtp.ehlo()
+        smtp.starttls()
+        smtp.login(SEND_USER, SEND_PASS)
+        smtp.send_message(msg)
+
+
 def send_ballpark(body):
     if not SEND_USER or not SEND_PASS:
         return {"ok": False, "error": "Email sending isn't configured — add SEND_EMAIL_USER and "
@@ -436,9 +456,19 @@ def send_ballpark(body):
                                subtype="pdf", filename=pdf_name)
         attached = True
 
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
-        smtp.login(SEND_USER, SEND_PASS)
-        smtp.send_message(msg)
+    try:
+        _smtp_send(msg)
+    except smtplib.SMTPAuthenticationError:
+        return {"ok": False, "error": "Gmail rejected the login — check SEND_EMAIL_USER is the exact "
+                                      "account the app password was created in, and that "
+                                      "SEND_EMAIL_APP_PASSWORD is the 16-character app password "
+                                      "(no spaces)."}
+    except (TimeoutError, OSError) as e:
+        return {"ok": False, "error": "Couldn't reach Gmail's mail server (ports 465 and 587 both "
+                                      f"timed out — the host may block outbound SMTP): {e}. "
+                                      "Fallback: Copy email + Generate PDF and send it yourself."}
+    except smtplib.SMTPException as e:
+        return {"ok": False, "error": f"Send failed: {e}"}
 
     logged = False
     try:  # lead log is best-effort — the send already happened

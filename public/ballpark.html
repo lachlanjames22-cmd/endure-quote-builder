@@ -352,13 +352,14 @@ function prefillSend(){
   st.className='status ok'; st.textContent='Prefilled — edit freely.';
 }
 async function sendBallparkEmail(){
-  // Future: server sends from sales@ with the PDF attached and logs the lead
-  // stage. Until action:'send_ballpark' exists server-side, this degrades to
-  // a clear explanation rather than a dead button.
   const st = document.getElementById('sendSt');
-  st.className='status'; st.textContent='Trying…';
+  st.className='status'; st.textContent='Sending… (renders the PDF then emails it — can take up to a minute)';
+  // Never let the UI hang on a dead request — abort after 90s.
+  const ctl = new AbortController();
+  const timer = setTimeout(()=>ctl.abort(), 90000);
   try{
     const res = await fetch(ENDURE_ENDPOINT, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      signal: ctl.signal,
       body: JSON.stringify({action:'send_ballpark', token:TEAM_TOKEN,
         to:document.getElementById('sendTo').value.trim(),
         subject:document.getElementById('sendSubject').value,
@@ -374,8 +375,10 @@ async function sendBallparkEmail(){
     st.textContent = (j && j.error) ? j.error : 'Send failed — use Copy email + Generate PDF as the fallback.';
   }catch(e){
     st.className='status';
-    st.textContent='Sending isn’t wired up yet — coming in the next update. Use Copy email + Generate PDF for now.';
-  }
+    st.textContent = (e && e.name==='AbortError')
+      ? 'Timed out after 90s — the server never answered. Use Copy email + Generate PDF as the fallback.'
+      : 'Send failed ('+((e&&e.message)||e)+') — use Copy email + Generate PDF as the fallback.';
+  }finally{ clearTimeout(timer); }
 }
 calc();
 </script>
