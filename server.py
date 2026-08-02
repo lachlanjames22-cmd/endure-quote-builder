@@ -12,8 +12,10 @@ import io
 import json
 import os
 import re
+import smtplib
 import sys
 import tempfile
+from email.message import EmailMessage
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -28,6 +30,10 @@ from googleapiclient.discovery import build  # noqa: E402
 from googleapiclient.http import MediaIoBaseUpload  # noqa: E402
 
 TOKEN = os.environ.get("TEAM_TOKEN")
+SEND_USER = os.environ.get("SEND_EMAIL_USER")
+SEND_PASS = os.environ.get("SEND_EMAIL_APP_PASSWORD")
+SEND_BCC = os.environ.get("SEND_BCC", "")
+SEND_NAME = os.environ.get("SEND_EMAIL_NAME", "Matt — Endure Decks")
 SHEET = os.environ.get("RATE_SHEET_ID")
 JOBS = os.environ.get("INCOMING_JOBS_ID")
 
@@ -100,6 +106,8 @@ async def endure_post(request: Request):
             return JSONResponse(img_lib_get(body))
         if action == "img_lib_put":
             return JSONResponse(img_lib_put(body))
+        if action == "send_ballpark":
+            return JSONResponse(send_ballpark(body))
     except Exception as e:  # noqa: BLE001
         return bad(e)
     return bad("unknown action")
@@ -393,6 +401,74 @@ def log_quote(body, folder_url):
     else:
         vals.append(spreadsheetId=sid, range="Log!A1", valueInputOption="USER_ENTERED",
                     insertDataOption="INSERT_ROWS", body={"values": [row]}).execute()
+
+
+# ── ballpark email send (from Matt's address, BCC to the shared inbox) ──────
+def send_ballpark(body):
+    if not SEND_USER or not SEND_PASS:
+        return {"ok": False, "error": "Email sending isn't configured — add SEND_EMAIL_USER and "
+                                      "SEND_EMAIL_APP_PASSWORD (a Gmail app password) in Railway, "
+                                      "plus SEND_BCC for the shared-inbox copy."}
+    to = (body.get("to") or "").strip()
+    if not to or "@" not in to:
+        return {"ok": False, "error": "recipient email required"}
+    subject = (body.get("subject") or "Your ballpark from Endure Decks").strip()
+    text = body.get("body") or ""
+    jd = body.get("job_data")
+
+    msg = EmailMessage()
+    msg["From"] = f"{SEND_NAME} <{SEND_USER}>"
+    msg["To"] = to
+    msg["Subject"] = subject
+    if SEND_BCC:
+        msg["Bcc"] = SEND_BCC
+    msg.set_content(text)
+
+    attached = False
+    if jd:
+        client = (jd.get("client_name") or "Client").strip()
+        slug = re.sub(r"[^A-Za-z0-9]+", "_", client).strip("_") or "Client"
+        pdf_name = f"{slug}_Ballpark.pdf"
+        with tempfile.TemporaryDirectory() as td:
+            out_pdf = os.path.join(td, pdf_name)
+            render_proposal.render(jd, out_pdf)
+            msg.add_attachment(open(out_pdf, "rb").read(), maintype="application",
+                               subtype="pdf", filename=pdf_name)
+        attached = True
+
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+        smtp.login(SEND_USER, SEND_PASS)
+        smtp.send_message(msg)
+
+    logged = False
+    try:  # lead log is best-effort — the send already happened
+        log_ballpark_lead(jd, to)
+        logged = True
+    except Exception:  # noqa: BLE001
+        pass
+    return {"ok": True, "from": SEND_USER, "attached": attached, "logged": logged}
+
+
+def log_ballpark_lead(jd, to):
+    from datetime import date
+    drive = build("drive", "v3", credentials=_creds(), cache_discovery=False)
+    sheets = build("sheets", "v4", credentials=_creds(), cache_discovery=False)
+    sid = _quote_log_id(drive, sheets)
+    meta = sheets.spreadsheets().get(spreadsheetId=sid).execute()
+    titles = [s["properties"]["title"] for s in meta["sheets"]]
+    if "Ballparks" not in titles:
+        sheets.spreadsheets().batchUpdate(spreadsheetId=sid, body={"requests": [
+            {"addSheet": {"properties": {"title": "Ballparks"}}}]}).execute()
+        sheets.spreadsheets().values().update(
+            spreadsheetId=sid, range="Ballparks!A1", valueInputOption="USER_ENTERED",
+            body={"values": [["Date", "Name", "Email", "Lane", "Range low inc", "Range high inc", "Status"]]}).execute()
+    opt = ((jd or {}).get("range", {}).get("options") or [{}])[0]
+    row = [date.today().isoformat(), (jd or {}).get("client_name", ""), to,
+           ((jd or {}).get("ballpark_next") or {}).get("lane", ""),
+           opt.get("price_low_inc_gst", ""), opt.get("price_high_inc_gst", ""), "Ballpark sent"]
+    sheets.spreadsheets().values().append(
+        spreadsheetId=sid, range="Ballparks!A1", valueInputOption="USER_ENTERED",
+        insertDataOption="INSERT_ROWS", body={"values": [row]}).execute()
 
 
 # ── image library (shared bank of reusable images, lives in Drive) ──────────
