@@ -88,6 +88,12 @@ textarea{width:100%;min-height:180px;border:1px solid var(--rule);border-radius:
       </div>
     </div>
     <div class="card">
+      <h2>Other items <span style="color:var(--grey);font-weight:400;text-transform:none;">— pergola, bench seat, anything</span></h2>
+      <p class="d">Each one gets its own range card on the PDF, marked "Optional Add-on". Ranges inc GST — your call on the numbers.</p>
+      <div id="otherRows"></div>
+      <button class="btn secondary" onclick="addOther()">+ Add item</button>
+    </div>
+    <div class="card">
       <h2>How Matt uses this</h2>
       <div class="steps">
         <b>1.</b> Punch in the lead — 30 seconds.<br>
@@ -201,6 +207,27 @@ function calc(){
   return out;
 }
 const fmt = n => '$' + Math.round(n).toLocaleString('en-AU');
+// Other items — anything Matt wants ballparked alongside the deck
+S.others = [];
+function addOther(){ S.others.push({title:'', lo:'', hi:'', note:''}); renderOthers(); }
+function renderOthers(){
+  const el = document.getElementById('otherRows'); if(!el) return;
+  el.innerHTML = S.others.map((x,i)=>`
+    <div style="display:grid;grid-template-columns:1.4fr .7fr .7fr 1.4fr auto;gap:6px;margin-bottom:6px;align-items:center;">
+      <input type="text" placeholder="e.g. Pergola" value="${escA(x.title)}" oninput="S.others[${i}].title=this.value">
+      <input type="number" placeholder="Low $" value="${escA(x.lo)}" oninput="S.others[${i}].lo=this.value">
+      <input type="number" placeholder="High $" value="${escA(x.hi)}" oninput="S.others[${i}].hi=this.value">
+      <input type="text" placeholder="Note (client sees, optional)" value="${escA(x.note)}" oninput="S.others[${i}].note=this.value">
+      <button class="btn secondary" style="padding:6px 10px;" onclick="S.others.splice(${i},1); renderOthers();">✕</button>
+    </div>`).join('');
+}
+function escA(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+function cleanOthers(){
+  return S.others.filter(x => x.title.trim() && (Number(x.lo)>0 || Number(x.hi)>0)).map(x => {
+    const lo = Math.round(Number(x.lo)||Number(x.hi)), hi = Math.round(Number(x.hi)||Number(x.lo));
+    return {title:x.title.trim(), lo:Math.min(lo,hi), hi:Math.max(lo,hi), note:x.note.trim()};
+  });
+}
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 document.getElementById('area').addEventListener('input', calc);
 document.getElementById('board').addEventListener('change', calc);
@@ -216,7 +243,9 @@ function emailText(){
     body: 'Hi ' + firstName() + ',\n\n'
       + 'Thanks for reaching out. Attached is a ballpark for your deck — roughly ' + o.area + 'm² in ' + o.label
       + ', it typically lands between ' + fmt(o.lo) + ' and ' + fmt(o.hi) + ' installed. '
-      + 'The document explains what’s included, how we build, and what to ask any builder quoting your deck (including us).\n\n'
+      + 'The document explains what’s included, how we build, and what to ask any builder quoting your deck (including us).'
+      + (cleanOthers().length ? ' I’ve also included a ballpark for the ' + cleanOthers().map(x=>x.title.toLowerCase()).join(' and ') + ' we spoke about.' : '')
+      + '\n\n'
       + nextStep + '\n\n'
       + 'Want me to pencil you in this week?\n\n'
       + 'Matt — Endure Decks\nenduredecks.com.au/pricing'
@@ -254,7 +283,12 @@ function buildBallparkJob(){
         price_low_inc_gst:o.lo, price_high_inc_gst:o.hi,
         price_low_ex_gst:Math.round(o.lo/1.1), price_high_ex_gst:Math.round(o.hi/1.1),
         spec_line:'Supplied & installed to the Endure 20-Year Standard — subframe, boards, finish and site clean included.'+(S.d==='yes'?' Old-deck removal allowed for.':''),
-        eyebrow:'Ballpark Range'}],
+        eyebrow:'Ballpark Range'}].concat(cleanOthers().map(x => ({
+          label:x.title, image:'', size_label:'',
+          price_low_inc_gst:x.lo, price_high_inc_gst:x.hi,
+          price_low_ex_gst:Math.round(x.lo/1.1), price_high_ex_gst:Math.round(x.hi/1.1),
+          spec_line:x.note||'Supplied & installed — priced properly at the site consult.',
+          eyebrow:'Optional Add-on'}))),
       alt_materials:[],
       scope_items:[
         {label:'Full supply & install — subframe, boards, fixings, finish', value:'Included'},
