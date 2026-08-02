@@ -74,9 +74,16 @@ internal-costing.json, site photos). Deploys to **quote.enduredecks.com.au**.
   (🚧 banner, under construction by design) + `ballpark:true` job-data flag
   routing render_proposal.py to a 4-page range-estimate doc (cover, why-a-range,
   range card, consult next-step; complex lane adds design tiers). Email send
-  form is DELIBERATELY stubbed (action:'send_ballpark' unimplemented) — do not
-  wire it without Lachy. Pricing TABLE in ballpark.html mirrors the published
-  site pricing page — keep them in sync. Fixtures: sample_ballpark_*.json.
+  (`action:'send_ballpark'`, wired 2026-08-02 with Lachy): sends FROM Matt's
+  address (SEND_EMAIL_USER) with the ballpark PDF attached, BCC to SEND_BCC,
+  logs a lead row to the "Ballparks" tab of _Quote Log. Railway BLOCKS
+  outbound SMTP, so the primary path is the Gmail API over HTTPS via the
+  service account with domain-wide delegation (admin.google.com → API
+  controls → Domain-wide delegation → SA client_id + gmail.send scope; Gmail
+  API enabled in the SA's Cloud project). SMTP (app password) is only a
+  fallback for SMTP-capable hosts. Pricing TABLE in ballpark.html mirrors the
+  published site pricing page — keep them in sync. Fixtures:
+  sample_ballpark_*.json.
 - Save-gate (2026-08-02): hosted Generate PDF is DISABLED until the current
   quote is saved (S.savedClean; any edit re-locks). Saves are idempotent:
   job folder reused by name, files upsert by name, Quote Log upserts one row

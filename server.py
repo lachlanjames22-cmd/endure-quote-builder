@@ -404,6 +404,64 @@ def log_quote(body, folder_url):
 
 
 # ── ballpark email send (from Matt's address, BCC to the shared inbox) ──────
+def _gmail_send(msg):
+    # HTTPS path — the only one that works on hosts that block outbound SMTP
+    # (Railway does). Needs domain-wide delegation: the Workspace admin
+    # authorises this service account's client ID for the gmail.send scope,
+    # then it can send as SEND_USER.
+    info = json.loads(os.environ.get("GOOGLE_SERVICE_ACCOUNT", ""))
+    creds = service_account.Credentials.from_service_account_info(
+        info, scopes=["https://www.googleapis.com/auth/gmail.send"], subject=SEND_USER)
+    gmail = build("gmail", "v1", credentials=creds, cache_discovery=False)
+    gmail.users().messages().send(
+        userId="me",
+        body={"raw": base64.urlsafe_b64encode(msg.as_bytes()).decode()}).execute()
+
+
+def _gmail_err(e):
+    s = str(e)
+    try:
+        cid = json.loads(os.environ.get("GOOGLE_SERVICE_ACCOUNT", "")).get("client_id", "")
+    except Exception:  # noqa: BLE001
+        cid = ""
+    if "accessNotConfigured" in s or "has not been used" in s or "is disabled" in s:
+        return ("Gmail API isn't enabled in the service account's Google Cloud project — "
+                "enable it at https://console.cloud.google.com/apis/library/gmail.googleapis.com "
+                "(same project as the Drive/Sheets APIs), wait a minute, then retry")
+    if "unauthorized_client" in s or "access_denied" in s or "Precondition" in s:
+        return (f"the service account isn't authorised to send as {SEND_USER}. In "
+                "admin.google.com → Security → Access and data control → API controls → "
+                f"Domain-wide delegation, add client ID {cid or '(the client_id field in the service-account JSON)'} "
+                "with scope https://www.googleapis.com/auth/gmail.send")
+    if "invalid_grant" in s:
+        return (f"{SEND_USER} doesn't look like a mailbox on the Google Workspace domain the "
+                "delegation was granted in — SEND_EMAIL_USER must be a Workspace address "
+                "(a personal @gmail.com can't be delegated to)")
+    return s
+
+
+def _send_message(msg):
+    # Returns the method that worked; raises with an instructive combined
+    # error if every path fails.
+    errors = []
+    try:
+        _gmail_send(msg)
+        return "gmail_api"
+    except Exception as e:  # noqa: BLE001
+        errors.append(f"Gmail API: {_gmail_err(e)}")
+    if SEND_PASS:
+        try:
+            _smtp_send(msg)
+            return "smtp"
+        except smtplib.SMTPAuthenticationError:
+            errors.append("SMTP: Gmail rejected the app-password login")
+        except (TimeoutError, OSError) as e:
+            errors.append(f"SMTP: mail ports blocked or unreachable ({e})")
+        except smtplib.SMTPException as e:
+            errors.append(f"SMTP: {e}")
+    raise RuntimeError(" | ".join(errors))
+
+
 def _smtp_send(msg):
     # 465/SSL first; if that port is filtered (connection hangs/refused), retry
     # on 587/STARTTLS before giving up. Timeouts keep a blocked port from
@@ -425,10 +483,10 @@ def _smtp_send(msg):
 
 
 def send_ballpark(body):
-    if not SEND_USER or not SEND_PASS:
-        return {"ok": False, "error": "Email sending isn't configured — add SEND_EMAIL_USER and "
-                                      "SEND_EMAIL_APP_PASSWORD (a Gmail app password) in Railway, "
-                                      "plus SEND_BCC for the shared-inbox copy."}
+    if not SEND_USER:
+        return {"ok": False, "error": "Email sending isn't configured — add SEND_EMAIL_USER "
+                                      "(Matt's address) in Railway, plus SEND_BCC for the "
+                                      "shared-inbox copy."}
     to = (body.get("to") or "").strip()
     if not to or "@" not in to:
         return {"ok": False, "error": "recipient email required"}
@@ -457,18 +515,9 @@ def send_ballpark(body):
         attached = True
 
     try:
-        _smtp_send(msg)
-    except smtplib.SMTPAuthenticationError:
-        return {"ok": False, "error": "Gmail rejected the login — check SEND_EMAIL_USER is the exact "
-                                      "account the app password was created in, and that "
-                                      "SEND_EMAIL_APP_PASSWORD is the 16-character app password "
-                                      "(no spaces)."}
-    except (TimeoutError, OSError) as e:
-        return {"ok": False, "error": "Couldn't reach Gmail's mail server (ports 465 and 587 both "
-                                      f"timed out — the host may block outbound SMTP): {e}. "
-                                      "Fallback: Copy email + Generate PDF and send it yourself."}
-    except smtplib.SMTPException as e:
-        return {"ok": False, "error": f"Send failed: {e}"}
+        via = _send_message(msg)
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": f"{e}. Fallback: Copy email + Generate PDF and send it yourself."}
 
     logged = False
     try:  # lead log is best-effort — the send already happened
@@ -476,7 +525,7 @@ def send_ballpark(body):
         logged = True
     except Exception:  # noqa: BLE001
         pass
-    return {"ok": True, "from": SEND_USER, "attached": attached, "logged": logged}
+    return {"ok": True, "from": SEND_USER, "attached": attached, "logged": logged, "via": via}
 
 
 def log_ballpark_lead(jd, to):
