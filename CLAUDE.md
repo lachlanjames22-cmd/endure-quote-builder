@@ -70,6 +70,17 @@ internal-costing.json, site photos). Deploys to **quote.enduredecks.com.au**.
   the rendered client PDF into the job folder now.
 - Header bar (2026-07-30): sticky black topbar — logo, Build / Library /
   Contracts & templates dropdowns, Save project button.
+- Ballpark lane (Cowork-built, ported 2026-08-02): /ballpark calculator page
+  (🚧 banner, under construction by design) + `ballpark:true` job-data flag
+  routing render_proposal.py to a 4-page range-estimate doc (cover, why-a-range,
+  range card, consult next-step; complex lane adds design tiers). Email send
+  form is DELIBERATELY stubbed (action:'send_ballpark' unimplemented) — do not
+  wire it without Lachy. Pricing TABLE in ballpark.html mirrors the published
+  site pricing page — keep them in sync. Fixtures: sample_ballpark_*.json.
+- Save-gate (2026-08-02): hosted Generate PDF is DISABLED until the current
+  quote is saved (S.savedClean; any edit re-locks). Saves are idempotent:
+  job folder reused by name, files upsert by name, Quote Log upserts one row
+  per client (preserving hand-set Status) — re-saving never duplicates.
 - Drive-backed image library: "_Image Library" folder in Incoming Jobs,
   actions img_lib_list/get/put, overlay picker on hero/recipe/concept images.
 

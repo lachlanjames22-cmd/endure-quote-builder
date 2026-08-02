@@ -261,10 +261,12 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
 </style>'''
 
 
-def progress_track_html():
+def progress_track_html(ballpark=False):
     """Fixed 'how far through the process' stepper shown on both Approval
     pages. Steps only, no dollar figures or percentages — the ~80%-filled
-    final connector line is the only signal of how close they are."""
+    final connector line is the only signal of how close they are.
+    Ballpark flavour: the client has only just enquired, so 'you are here'
+    sits between Enquiry and Site Visit."""
     def dot(label, done):
         cls = '' if done else ' upcoming'
         return f'''<div class="step"><div class="dot{cls}"></div><div class="label{cls}">{label}</div></div>'''
@@ -272,6 +274,13 @@ def progress_track_html():
         marker = '<div class="youhere">You are here</div>' if here else ''
         return (f'<div class="line">{marker}<div class="fill" style="width:{pct_filled}%"></div>'
                 f'<div class="empty" style="width:{100-pct_filled}%"></div></div>')
+    if ballpark:
+        return (f'<div class="stepper">'
+                f'{dot("Enquiry", True)}{line(45, here=True)}'
+                f'{dot("Site Visit", False)}{line(0)}'
+                f'{dot("Planning", False)}{line(0)}'
+                f'{dot("Deposit &amp; Build", False)}'
+                f'</div>')
     return (f'<div class="stepper">'
             f'{dot("Enquiry", True)}{line(100)}'
             f'{dot("Site Visit", True)}{line(100)}'
@@ -677,6 +686,375 @@ def page_project_run(d, n, status_label):
   <div class="pay-sched" style="--sched-cols:{len(sched)}">{sched_html}</div>
 {foot(n)}</div></div>'''
 
+# ------------------------------------------------------------ BALLPARK ----
+BUILDER_QUESTIONS = [
+    ('01', 'How is water managed?', 'Ask any builder where water goes. If the answer involves a horizontal surface, keep looking.'),
+    ('02', 'Is the timber matched to the exposure?', 'Coastal, pool-side and full-sun sites need different treatment classes. "Standard" is not an answer.'),
+    ('03', 'What fixings, exactly?', 'Rated fasteners, no mixed metals. The cheapest screws fail years before the boards do.'),
+    ('04', 'Can the deck breathe?', 'Sealed voids rot from the inside. Ask about ventilation clearance under the boards.'),
+    ('05', 'Where does the load go?', 'Deck to joist to bearer to footing — a clean load path, or movement within a few summers.'),
+]
+
+def page_why_range(d, n, status_label):
+    q_html = ''.join(
+        f'<div class="std-item"><div class="std-headrow"><span class="std-num">{num}</span>'
+        f'<span class="std-head">{h}</span></div><div class="std-body">{b}</div></div>'
+        for num, h, b in BUILDER_QUESTIONS)
+    return f'''<div class="page">{head(f"{status_label} &middot; {n:02d}")}<div class="pbody">
+  <div class="eyebrow">Straight answers</div>
+  {title_html(d, "approach", 'Why a range, <span class="mustard">not a number.</span>')}
+  <div class="intro-grid">
+    <div>
+      <div class="thread-lab">The honest physics of pricing</div>
+      <div class="intro-letter">
+        <p>Two decks with the same area can be thousands apart — access, levels, subframe
+        height and board choice all move the real cost. Anyone who gives you an exact price
+        without seeing your site is guessing, and you&rsquo;ll wear the difference later as
+        variations. The range in this document is built from the same rates as every formal
+        quote we send &mdash; it&rsquo;s where your project genuinely lands.</p>
+      </div>
+      <div class="thread-lab" style="margin-top:5mm;">Why our consult isn&rsquo;t free</div>
+      <div class="intro-letter">
+        <p>A free quote is a guess you&rsquo;ll be held to. Our site consult is a measured,
+        checked number that doesn&rsquo;t move &mdash; and the fee comes straight off your
+        build. It also means the people quoting your deck are the people building it, not a
+        salesperson paid to say yes.</p>
+      </div>
+      <div class="thread-lab" style="margin-top:5mm;">Our process</div>
+      <div class="intro-letter">
+        <p>Enquiry &rarr; site consult &rarr; fixed-price quote &rarr; build &rarr; handover
+        under the 20-Year Standard. Simple jobs are often priced on the spot; complex ones move
+        through drawings so the number is locked before a nail goes in.</p>
+      </div>
+    </div>
+    <div>
+      <div class="thread-lab">Five questions to ask anyone quoting your deck</div>
+      <p style="font-size:9.5pt;margin-bottom:2mm;">Including us. These are the five points of our 20-Year Standard — any builder worth hiring should have answers.</p>
+      <div class="std-list">{q_html}</div>
+    </div>
+  </div>
+  <div class="image-strip">
+    <div class="image-strip-cell"><img src="{I}strip1.jpg"></div>
+    <div class="image-strip-cell"><img src="{I}strip2.jpg"></div>
+    <div class="image-strip-cell"><img src="{I}strip3.jpg"></div>
+  </div>
+{foot(n)}</div></div>'''
+
+def page_next_step_ballpark(d, n, status_label):
+    r = d['range']
+    bp = d.get('ballpark_next', {})
+    lane = bp.get('lane', 'standard')            # 'standard' | 'complex'
+    fee_ex = bp.get('consult_fee_ex_gst', 200)
+    fee_inc = round(fee_ex * 1.1)
+    contact = bp.get('contact', {})
+    phone = contact.get('phone', '')
+    email = contact.get('email', '')
+    stripe = bp.get('stripe_url', '')
+    consult_card = f'''<div class="appr-card" style="border-left:3px solid var(--mustard-deep);">
+      <div style="min-width:0;">
+        <div class="nm">Site Consult &amp; Check Measure &mdash; {fmt_money(fee_inc)} inc GST, credited off your build</div>
+        <div style="font-size:9pt;color:var(--grey);margin-top:1mm;">45 minutes on site. We measure, check access and levels, and talk boards.
+        {"Simple jobs are often priced on the spot; either way you have a fixed-price quote within 48 hours."
+         if lane == 'standard' else
+         "Complex projects leave the consult with a clear design path &mdash; choose the service below that takes yours to a locked-scope fixed price."}</div>
+      </div></div>'''
+    tiers_html = ''
+    if lane == 'complex':
+        tier_default_img = {'working drawings':'substr.jpg','design pack':'render.jpg','landscape concept design':'finished.jpg'}
+        cards = ''
+        for t in r.get('design_service_tiers', []):
+            img = t.get('image') or tier_default_img.get(str(t.get('name','')).strip().lower(), 'render.jpg')
+            cards += (f'<div class="ds-card"><div class="ds-img"><img src="{I}{img}"></div>'
+                      f'<div class="ds-inner"><div class="nm">{t["name"]}</div><div class="desc">{t["description"]}</div>'
+                      f'<div class="pr">{fmt_money(t["price_ex_gst"])}+GST</div></div></div>')
+        if cards:
+            tiers_html = (f'<div class="ds-h">After the consult &middot; design service</div>'
+                          f'<div class="ds-sub">Your project is the detailed kind &mdash; these are the paths from consult to a locked-scope price. The consult fee credits against any of them.</div>'
+                          f'<div class="ds-cards">{cards}</div>')
+    stripe_html = (f'<div style="margin-top:2.5mm;"><span style="display:inline-block;background:var(--mustard-deep);color:#fff;'
+                   f'padding:2.5mm 6mm;font-weight:700;font-size:10pt;">Book &amp; pay online &rarr; {stripe}</span></div>') if stripe else ''
+    contact_bits = ' &nbsp;&middot;&nbsp; '.join(x for x in [phone, email] if x)
+    return f'''<div class="page">{head(f"Next Step &middot; {n:02d}")}<div class="pbody">
+  <div class="eyebrow">Next step</div>
+  {title_html(d, "approval", 'See it <span class="mustard">in person.</span>')}
+  <p class="lead">This ballpark tells you if we&rsquo;re in the same conversation. One site consult turns it into a fixed price that doesn&rsquo;t move.</p>
+  {progress_track_html(ballpark=True)}
+  <div style="font-family:'EB Garamond',Georgia,serif;font-weight:600;font-size:12.5pt;margin-top:3mm;">Your next step</div>
+  <div class="appr-cards">{consult_card}</div>
+  {tiers_html}
+  <div class="accept-block" style="margin-top:5mm;"><div class="accept-text" style="font-size:10.5pt;">
+    <strong>Book your consult:</strong> reply to the email this came with{', call ' + phone if phone else ''}{', or write to ' + email if email else ''}.
+  </div></div>
+  {stripe_html}
+  <p style="font-size:8.5pt;color:var(--grey);margin-top:4mm;">No obligation either way &mdash; if the range doesn&rsquo;t work for your budget, you&rsquo;ll know today instead of three quotes from now. This document is general guidance, not a fixed offer; final pricing is set at the site consult.</p>
+{foot(n)}</div></div>'''
+
+def page_finance(d, n, status_label):
+    f = d['finance']
+    rows = ''
+    for r in f['rows']:
+        rows += (f'<div class="fin-table-row"><div class="bl">{r["label"]}<span class="sub">{r["sub"]}</span></div>'
+                  f'<div class="wk">~${r["wk3"]}/wk</div><div class="wk">~${r["wk5"]}/wk</div><div class="wk">~${r["wk7"]}/wk</div></div>')
+    return f'''<div class="page">{head(f"Finance &middot; {n:02d}")}<div class="pbody">
+  <div class="eyebrow">Flexible Payment</div>
+  {title_html(d, "finance", 'Pay it <span class="mustard">your way.</span>')}
+  <p class="lead">Not paying upfront? We work with HandyPay. We make the intro and they quote you direct.</p>
+  <div class="fin-hero">
+    <div>
+      <div class="fin-hero-eyebrow">Finance via HandyPay</div>
+      <div class="fin-hero-h">Build now. Pay weekly.</div>
+      <div class="fin-hero-sub">Spread the cost over a term that suits you.</div>
+    </div>
+    <div class="fin-hero-right">
+      <div class="fin-hero-eyebrow">Indicative Range</div>
+      <div class="fin-hero-range">${f["wk_low"]}&ndash;${f["wk_high"]}<span>/wk</span></div>
+      <div class="fin-hero-note">Depending on term</div>
+    </div>
+  </div>
+  <div style="margin-top:5mm;font-family:'EB Garamond',Georgia,serif;font-size:13pt;font-weight:600;">How the ranges look</div>
+  <p style="font-size:9pt;color:var(--grey);margin:1mm 0 0;">Rough weekly figures across different terms. Indicative only.</p>
+  <div class="fin-table">
+    <div class="fin-table-head"><div>Build</div><div style="text-align:center">3-year term</div><div style="text-align:center">5-year term</div><div style="text-align:center">7-year term</div></div>
+    {rows}
+  </div>
+  <div class="fin-next"><div class="h">Next step on finance.</div>
+  <p style="margin:0;font-size:9.5pt;">Tick the finance box on the Approval page and we refer you to HandyPay. They handle the rest. No commitment until you&rsquo;ve seen their numbers.</p></div>
+  <div class="fin-disclaimer">Weekly figures above are indicative. Actual rate, term and repayments are set by HandyPay subject to credit assessment. Terms, conditions, fees and charges apply.</div>
+{foot(n)}</div></div>'''
+
+# ------------------------------------------------------------ RANGE MODE ----
+def _option_card_html(opt, compact):
+    cls = ' compact' if compact else ''
+    return f'''<div class="range-card{cls}">
+    <div class="range-card-head">
+      <div class="range-eyebrow">{opt.get("eyebrow", "Preliminary Range")}</div>
+      <div class="range-title">{opt["label"]}</div>
+    </div>
+    <div class="range-body">
+      <div class="range-img"><img src="{I}{opt["image"]}"></div>
+      <div>
+        <div class="range-price">{fmt_money(opt["price_low_inc_gst"])} &ndash; {fmt_money(opt["price_high_inc_gst"])}</div>
+        <div class="range-price-sub">Inc GST &middot; {opt.get("size_label", "")}</div>
+        <div class="range-price-sub2">{fmt_money(opt["price_low_ex_gst"])} &ndash; {fmt_money(opt["price_high_ex_gst"])} ex GST</div>
+        <div class="range-spec">{opt["spec_line"]}</div>
+      </div>
+    </div>
+  </div>'''
+
+def pages_cost_range(d, n, status_label):
+    """Returns a LIST of page HTML strings — one page if there's a single
+    option, two pages (option cards, then scope/note) if there are several,
+    since 3+ full-size range cards plus the scope table won't fit one A4 page."""
+    r = d['range']
+    options = r['options']
+    multi = len(options) > 1
+    option_cards = ''.join(_option_card_html(opt, compact=multi) for opt in options)
+    alt_html = ''.join(f'<div class="alt-callout"><div class="h">Alternative material &middot; {a["name"]}</div>'
+                        f'<div>{a["note"]} <strong>{a["delta"]}</strong></div></div>' for a in r.get('alt_materials', []))
+    scope_rows = ''.join(
+        f'<div class="scope-row{" strong" if it.get("strong") else ""}"><div>{it["label"]}</div><div>{it["value"]}</div></div>'
+        for it in r['scope_items'])
+    scope_block = f'''<div class="scope-h">Scope &mdash; included</div>
+  <div class="scope-table">
+    <div class="scope-header"><div>Item</div><div>Approx (inc GST)</div></div>
+    {scope_rows}
+  </div>
+  <div class="prelim-note"><div class="h">Preliminary &mdash; First pass</div>
+  <p style="margin:0;">{r["preliminary_note"]}</p></div>'''
+
+    if not multi:
+        return [f'''<div class="page">{head(f"Cost Breakdown &middot; {n:02d}")}<div class="pbody">
+  <div class="eyebrow">Pricing Breakdown</div>
+  <div class="title">Cost <span class="mustard">breakdown.</span></div>
+  <p class="lead">Your full project, line by line. All amounts inc GST.</p>
+  {option_cards}
+  {alt_html}
+  {scope_block}
+{foot(n)}</div></div>''']
+
+    page1 = f'''<div class="page">{head(f"Cost Breakdown &middot; {n:02d}")}<div class="pbody">
+  <div class="eyebrow">Pricing Breakdown</div>
+  <div class="title">Your <span class="mustard">options.</span></div>
+  <p class="lead">Same site, priced a few ways. All ranges inc/ex GST as shown &mdash; pick a starting point, refine at approval.</p>
+  {option_cards}
+  {alt_html}
+{foot(n)}</div></div>'''
+    page2 = f'''<div class="page">{head(f"Cost Breakdown &middot; {n+1:02d}")}<div class="pbody">
+  <div class="eyebrow">Pricing Breakdown</div>
+  <div class="title">Scope <span class="mustard">&amp; assumptions.</span></div>
+  <p class="lead">What&rsquo;s covered across the options above.</p>
+  {scope_block}
+{foot(n+1)}</div></div>'''
+    return [page1, page2]
+
+def page_approval_range(d, n, status_label):
+    r = d['range']
+    consult_fee = r.get('consult_fee_paid', 0)
+    tier_default_img = {'working drawings':'substr.jpg','design pack':'render.jpg','landscape concept design':'finished.jpg'}
+    tier_cards = ''
+    for t in r['design_service_tiers']:
+        price_ex = fmt_money(t['price_ex_gst'], 0)
+        credit_html = ''
+        if t.get('credit_consult'):
+            net = t['price_ex_gst'] - consult_fee
+            credit_html = f'<span class="credit">less {fmt_money(consult_fee)} consult fee &rarr; {fmt_money(net)}+GST</span>'
+        img = t.get('image') or tier_default_img.get(str(t.get('name','')).strip().lower(), 'render.jpg')
+        tier_cards += (f'<div class="ds-card"><div class="ds-img"><img src="{I}{img}"></div>'
+                        f'<div class="ds-inner"><div class="cbx">&#9744;</div>'
+                        f'<div class="nm">{t["name"]}</div><div class="desc">{t["description"]}</div>'
+                        f'<div class="pr">{price_ex}+GST{credit_html}</div></div></div>')
+    option_check_cards = ''.join(
+        f'<div class="appr-card"><div class="cbx">&#9744;</div><div><div class="nm">{opt["label"]} &middot; {opt.get("size_label","")}</div>'
+        f'<div class="pr">{fmt_money(opt["price_low_inc_gst"])} &ndash; {fmt_money(opt["price_high_inc_gst"])} inc GST</div></div></div>'
+        for opt in r['options'])
+    alt_check_cards = ''.join(
+        f'<div class="appr-card"><div class="cbx">&#9744;</div><div><div class="nm">Substitute with {a["name"]}</div>'
+        f'<div class="pr">{a["delta"]}</div></div></div>'
+        for a in r.get('alt_materials', []))
+    return f'''<div class="page">{head(f"Approval &middot; {n:02d}")}<div class="pbody">
+  <div class="eyebrow">Approval</div>
+  {title_html(d, "approval", 'Next <span class="mustard">step.</span>')}
+  <p class="lead">Sign below to authorise Endure to proceed. Tick the option(s) you want, and select the design service that takes your project from this range to a fixed, locked-scope price.</p>
+  {progress_track_html()}
+  <div style="font-family:'EB Garamond',Georgia,serif;font-weight:600;font-size:12.5pt;margin-top:3mm;">Your project</div>
+  <div class="appr-cards">
+    {option_check_cards}
+    {alt_check_cards}
+  </div>
+  <div class="ds-h">Next step &middot; design service</div>
+  <div class="ds-sub">Choose one. This purchase is separate from the build and moves you to a fixed price.</div>
+  <div class="ds-cards">{tier_cards}</div>
+  <div class="accept-block"><div class="paper-tick">&#9744;</div><div class="accept-text">I accept the preliminary range above and instruct Endure to proceed with the design service selected.</div></div>
+  <div class="sign-grid">
+    <div><div class="sign-label">Client Name(s)</div><div class="sign-line"></div></div>
+    <div></div>
+    <div><div class="sign-label">Signature</div><div class="sign-line"></div></div>
+  </div>
+  <div class="sign-grid" style="margin-top:5mm">
+    <div><div class="sign-label">Date</div><div class="sign-line"></div></div>
+    <div></div>
+    <div><div class="sign-label">Range Accepted (inc GST)</div><div class="sign-line"></div></div>
+  </div>
+{foot(n)}</div></div>'''
+
+# ------------------------------------------------------------ FIXED MODE ----
+def _your_project_items(fp):
+    """Normalises fixed.your_project to a list of items. Supports the current
+    project_items[] shape, and falls back to treating the legacy single-object
+    fields (image/price_inc_gst/spec_label/description/bullets) as one item,
+    so older saved job data still renders."""
+    items = fp.get('project_items')
+    if items:
+        return items
+    if fp.get('image') or fp.get('price_inc_gst') or fp.get('description'):
+        return [{
+            'label': 'Endure Install', 'image': fp.get('image', ''),
+            'price_inc_gst': fp.get('price_inc_gst'), 'spec_label': fp.get('spec_label', ''),
+            'description': fp.get('description', ''), 'bullets': fp.get('bullets', []),
+        }]
+    return []
+
+def page_your_project(d, n, status_label):
+    fp = d['fixed']['your_project']
+    items = _your_project_items(fp)
+    compact = ' compact' if len(items) > 1 else ''
+    cards = []
+    for it in items:
+        bul = ''.join(f'<li>{b}</li>' for b in it.get('bullets', []))
+        label_row = f'<div class="yp-item-label">{it["label"]}</div>' if it.get('label') and len(items) > 1 else ''
+        price_html = (f'<div class="yp-price">{fmt_money(it["price_inc_gst"], 2)} <span class="lab">INC GST</span></div>'
+                      if it.get('price_inc_gst') not in (None, '') else '')
+        cards.append(f'''<div class="yp-card{compact}">
+    <div class="yp-img"><img src="{I}{it.get("image","")}"></div>
+    <div class="yp-body">
+      {label_row}
+      {price_html}
+      <div class="yp-spec">{it.get("spec_label","")}</div>
+      <p class="yp-desc">{it.get("description","")}</p>
+      <ul class="yp-bul">{bul}</ul>
+    </div>
+  </div>''')
+    cards_html = ''.join(cards)
+    zones = ''.join(
+        f'<div class="yp-zone"><div class="nm">{z["name"]}</div><div class="sub">{z.get("sub","")}</div><div>{z["body"]}</div></div>'
+        for z in fp.get('zones', []))
+    return f'''<div class="page">{head(f"Your Project &middot; {n:02d}")}<div class="pbody">
+  <div class="eyebrow">Your Project</div>
+  {title_html(d, "your_project", 'Your <span class="mustard">deck.</span>')}
+  <p class="lead">{fp["summary_line"]}</p>
+  {cards_html}
+  <div class="yp-zones">{zones}</div>
+  <div class="yp-note">Built to the Endure 20-Year Standard. {fp.get("footnote","")}</div>
+{foot(n)}</div></div>'''
+def page_cost_fixed(d, n, status_label):
+    fx = d['fixed']
+    lines = ''.join(
+        f'<div class="cb2-line"><div>{l["label"]}<div class="desc">{l["desc"]}</div></div><div class="amount">{fmt_money(l["amount"], 2)}</div></div>'
+        for l in fx['cost_lines'])
+    return f'''<div class="page">{head(f"Cost Breakdown &middot; {n:02d}")}<div class="pbody">
+  <div class="eyebrow">Pricing Breakdown</div>
+  <div class="title">Cost <span class="mustard">breakdown.</span></div>
+  <p class="lead">Your full project, line by line. All amounts inc GST.</p>
+  <div class="cb2-block">
+    <div class="cb2-head"><div>{fx["package_label"]}</div><div>INC GST</div></div>
+    {lines}
+    <div class="cb2-total"><div class="name">Total Project Price</div>
+      <div class="ex">{fmt_money(fx["subtotal_ex_gst"], 2)} ex GST</div>
+      <div class="inc">{fmt_money(fx["total_inc_gst"], 2)} inc GST</div>
+    </div>
+  </div>
+  <div class="incl-box"><div class="h">What&rsquo;s included &middot; what&rsquo;s not</div>
+  <p style="margin:0 0 1.5mm;"><strong>Included:</strong> {fx["included"]}</p>
+  <p style="margin:0;"><strong>Not included:</strong> {fx["excluded"]}</p></div>
+{foot(n)}</div></div>'''
+
+def page_approval_fixed(d, n, status_label):
+    fx = d['fixed']
+    include_finance = d.get('include', {}).get('finance', True) is not False
+    handypay_card = ('<div class="appr-card"><div class="cbx">&#9744;</div><div><div class="nm">Refer me to HandyPay for finance</div>'
+                     '<div class="pr">we make the intro</div></div></div>') if include_finance else ''
+    return f'''<div class="page">{head(f"Approval &middot; {n:02d}")}<div class="pbody">
+  <div class="eyebrow">Approval</div>
+  {title_html(d, "approval", 'Next <span class="mustard">step.</span>')}
+  <p class="lead">Ready to start? Sign below. A {fx["deposit_pct"]}% deposit confirms your project and locks the build window.</p>
+  {progress_track_html()}
+  <div style="font-family:'EB Garamond',Georgia,serif;font-weight:600;font-size:12.5pt;margin-top:3mm;">Your project</div>
+  <div class="appr-cards">
+    <div class="appr-card sel"><div class="cbx">&#9744;</div><div><div class="nm">{fx["package_label"]}</div>
+    <div class="pr">{fmt_money(fx["total_inc_gst"], 2)} inc GST</div></div></div>
+    {handypay_card}
+  </div>
+  <div class="accept-block"><div class="paper-tick">&#9744;</div><div class="accept-text">I accept the project above and instruct Endure to proceed on payment of the {fx["deposit_pct"]}% deposit.</div></div>
+  <div class="sign-grid">
+    <div><div class="sign-label">Client Name</div><div class="sign-line"></div></div>
+    <div></div>
+    <div><div class="sign-label">Signature</div><div class="sign-line"></div></div>
+  </div>
+  <div class="sign-grid" style="margin-top:5mm">
+    <div><div class="sign-label">Date</div><div class="sign-line"></div></div>
+    <div></div>
+    <div><div class="sign-label">Accepted Amount (inc GST)</div><div class="sign-line"></div></div>
+  </div>
+{foot(n)}</div></div>'''
+
+# ------------------------------------------------------------ PROJECT RUN ----
+def page_project_run(d, n, status_label):
+    steps = d['project_run']['steps']
+    sched = d['project_run']['payment_schedule']  # list of {pct, label}
+    steps_html = ''.join(
+        f'<div class="proc-row"><div class="proc-num"><div class="n">{s["num"]}</div></div>'
+        f'<div class="proc-content"><div class="head">{s["title"]}</div><div class="body">{s["body"]}</div></div></div>'
+        for s in steps)
+    sched_html = ''.join(f'<div><div class="pct">{p["pct"]}%</div><div class="lab">{p["label"]}</div></div>' for p in sched)
+    return f'''<div class="page">{head(f"Project Run &middot; {n:02d}")}<div class="pbody">
+  <div class="eyebrow">Project Run</div>
+  {title_html(d, "project_run", 'How your project <span class="mustard">runs.</span>')}
+  <p class="lead">{d["project_run"]["lead"]}</p>
+  {steps_html}
+  <div class="pay-sched-h">Payment schedule at a glance</div>
+  <div class="pay-sched" style="--sched-cols:{len(sched)}">{sched_html}</div>
+{foot(n)}</div></div>'''
+
 # ------------------------------------------------------------ RENDER ----
 def render(d, out_pdf):
     mode = d['mode']
@@ -684,6 +1062,19 @@ def render(d, out_pdf):
     inc = d.get('include', {})
     def on(key):
         return inc.get(key, True) is not False
+    if d.get('ballpark'):
+        # Ballpark flavour: cover → why-a-range education page → range card →
+        # booking-focused next step. No signatures, no finance, no project run.
+        n = 1
+        pages = [page_cover(d, n)]; n += 1
+        if on('approach'):
+            pages.append(page_why_range(d, n, status_label)); n += 1
+        cost_pages = pages_cost_range(d, n, status_label)
+        pages.extend(cost_pages); n += len(cost_pages)
+        pages.append(page_next_step_ballpark(d, n, status_label)); n += 1
+        DOC = "<!DOCTYPE html><html><head><meta charset='utf-8'>" + CSS + "</head><body>" + "".join(pages) + "</body></html>"
+        HTML(string=DOC).write_pdf(out_pdf)
+        return out_pdf
     n = 1
     pages = [page_cover(d, n)]; n += 1
     if on('approach'):

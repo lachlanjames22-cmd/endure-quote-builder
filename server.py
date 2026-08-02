@@ -153,18 +153,38 @@ def read_rates():
 
 
 # ── save job (straight port of saveJob in api/endure.js) ────────────────────
+def _upsert_file(drive, folder_id, name, media):
+    """Same name in the same folder = new version, not a duplicate — saves are idempotent."""
+    safe = json.dumps(name)[1:-1]
+    res = drive.files().list(q=f"'{folder_id}' in parents and name = '{safe}' and trashed = false",
+                             fields="files(id)", supportsAllDrives=True,
+                             includeItemsFromAllDrives=True, corpora="allDrives").execute()
+    hits = res.get("files", [])
+    if hits:
+        drive.files().update(fileId=hits[0]["id"], media_body=media, supportsAllDrives=True).execute()
+    else:
+        drive.files().create(body={"name": name, "parents": [folder_id]}, media_body=media,
+                             supportsAllDrives=True).execute()
+
+
 def save_job(body):
     drive = build("drive", "v3", credentials=_creds(), cache_discovery=False)
-    folder = drive.files().create(
-        body={"name": body.get("folder_name"), "mimeType": "application/vnd.google-apps.folder",
-              "parents": [JOBS]},
-        fields="id, webViewLink", supportsAllDrives=True,
-    ).execute()
+    fname = body.get("folder_name")
+    safe = json.dumps(fname or "")[1:-1]
+    existing = drive.files().list(
+        q=f"'{JOBS}' in parents and name = '{safe}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
+        fields="files(id, webViewLink)", supportsAllDrives=True,
+        includeItemsFromAllDrives=True, corpora="allDrives").execute().get("files", [])
+    if existing:
+        folder = existing[0]
+    else:
+        folder = drive.files().create(
+            body={"name": fname, "mimeType": "application/vnd.google-apps.folder", "parents": [JOBS]},
+            fields="id, webViewLink", supportsAllDrives=True).execute()
 
     def put_json(name, obj):
         media = MediaIoBaseUpload(io.BytesIO(json.dumps(obj, indent=2).encode()), mimetype="application/json")
-        drive.files().create(body={"name": name, "parents": [folder["id"]]},
-                             media_body=media, supportsAllDrives=True).execute()
+        _upsert_file(drive, folder["id"], name, media)
 
     put_json("job-data.json", body.get("job_data"))
     if body.get("internal"):
@@ -172,14 +192,12 @@ def save_job(body):
         try:  # also file the rendered Job Budget PDF; the save still succeeds without it
             pdf_bytes, pdf_name = _internal_pdf_bytes(body["internal"], body.get("job_data"))
             media = MediaIoBaseUpload(io.BytesIO(pdf_bytes), mimetype="application/pdf")
-            drive.files().create(body={"name": pdf_name, "parents": [folder["id"]]},
-                                 media_body=media, supportsAllDrives=True).execute()
+            _upsert_file(drive, folder["id"], pdf_name, media)
         except Exception:  # noqa: BLE001
             pass
     for a in body.get("attachments") or []:
         media = MediaIoBaseUpload(io.BytesIO(base64.b64decode(a["b64"])), mimetype=a.get("mime") or "image/jpeg")
-        drive.files().create(body={"name": a["name"], "parents": [folder["id"]]},
-                             media_body=media, supportsAllDrives=True).execute()
+        _upsert_file(drive, folder["id"], a["name"], media)
     try:  # also file the final client PDF into the folder — the CEO/paper trail
         jd = body.get("job_data") or {}
         client = (jd.get("client_name") or "Client").strip()
@@ -189,8 +207,7 @@ def save_job(body):
             out_pdf = os.path.join(td, doc_name)
             render_proposal.render(jd, out_pdf)
             media = MediaIoBaseUpload(io.BytesIO(open(out_pdf, "rb").read()), mimetype="application/pdf")
-            drive.files().create(body={"name": doc_name, "parents": [folder["id"]]},
-                                 media_body=media, supportsAllDrives=True).execute()
+            _upsert_file(drive, folder["id"], doc_name, media)
     except Exception:  # noqa: BLE001
         pass
     logged = False
@@ -360,9 +377,22 @@ def log_quote(body, folder_url):
     drive = build("drive", "v3", credentials=_creds(), cache_discovery=False)
     sheets = build("sheets", "v4", credentials=_creds(), cache_discovery=False)
     sid = _quote_log_id(drive, sheets)
-    sheets.spreadsheets().values().append(
-        spreadsheetId=sid, range="Log!A1", valueInputOption="USER_ENTERED",
-        insertDataOption="INSERT_ROWS", body={"values": [row]}).execute()
+    vals = sheets.spreadsheets().values()
+    # one row per job: match by client name, update in place (keeps Status); else append
+    clients = vals.get(spreadsheetId=sid, range="Log!B:B").execute().get("values", [])
+    hit = None
+    for i, r in enumerate(clients):
+        if r and r[0] == row[1] and i > 0:
+            hit = i + 1
+            break
+    if hit:
+        status = vals.get(spreadsheetId=sid, range=f"Log!M{hit}").execute().get("values", [[row[12]]])
+        row[12] = (status[0][0] if status and status[0] else row[12]) or row[12]
+        vals.update(spreadsheetId=sid, range=f"Log!A{hit}:N{hit}", valueInputOption="USER_ENTERED",
+                    body={"values": [row]}).execute()
+    else:
+        vals.append(spreadsheetId=sid, range="Log!A1", valueInputOption="USER_ENTERED",
+                    insertDataOption="INSERT_ROWS", body={"values": [row]}).execute()
 
 
 # ── image library (shared bank of reusable images, lives in Drive) ──────────
@@ -439,6 +469,11 @@ def render_internal_pdf(body):
 
 
 # ── static: the builder page ────────────────────────────────────────────────
+@app.get("/ballpark")
+async def ballpark():
+    return FileResponse(os.path.join(os.path.dirname(os.path.abspath(__file__)), "public", "ballpark.html"))
+
+
 @app.get("/")
 async def index():
     return FileResponse(os.path.join(os.path.dirname(os.path.abspath(__file__)), "public", "index.html"))

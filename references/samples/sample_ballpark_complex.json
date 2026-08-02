@@ -1,0 +1,76 @@
+{
+  "mode": "range",
+  "ballpark": true,
+  "client_name": "James & Priya Whitmore",
+  "cover_subtitle": "A ballpark for your raised 48m\u00b2 composite deck + pergola in North Fremantle.",
+  "prepared_for": "James & Priya Whitmore",
+  "location": "North Fremantle",
+  "proposal_date": "1 August 2026",
+  "status_label": "Ballpark Estimate",
+  "eyebrow_tag": "Ballpark Estimate \u00b7 Range Only",
+  "ballpark_next": {
+    "lane": "complex",
+    "consult_fee_ex_gst": 200,
+    "contact": {
+      "phone": "0400 000 000",
+      "email": "matt@enduredecks.com.au"
+    }
+  },
+  "range": {
+    "options": [
+      {
+        "label": "Trex composite deck",
+        "image": "trex.jpg",
+        "size_label": "approx. 48m\u00b2, raised",
+        "price_low_inc_gst": 33000,
+        "price_high_inc_gst": 41500,
+        "price_low_ex_gst": 30000,
+        "price_high_ex_gst": 37727,
+        "spec_line": "Raised composite deck to the Endure 20-Year Standard \u2014 engineered subframe, Trex Transcend boards, site clean included. Pergola priced separately at consult.",
+        "eyebrow": "Ballpark Range"
+      }
+    ],
+    "alt_materials": [],
+    "scope_items": [
+      {
+        "label": "Full supply & install \u2014 subframe, boards, fixings, finish",
+        "value": "Included"
+      },
+      {
+        "label": "Site clean & rubbish removal",
+        "value": "Included"
+      },
+      {
+        "label": "Built to the Endure 20-Year Standard",
+        "value": "Every job"
+      },
+      {
+        "label": "Exact price",
+        "value": "Set at your site consult",
+        "strong": true
+      }
+    ],
+    "preliminary_note": "This is a ballpark, not a quote \u2014 it's built from your rough dimensions using the same rates we price every job with, and matches the ranges published at enduredecks.com.au/pricing. Site access, levels, subframe height and final board choice move the number inside this range. One site consult locks it to a fixed price that doesn't change.",
+    "consult_fee_paid": 0,
+    "design_service_tiers": [
+      {
+        "name": "Working Drawings",
+        "description": "Plans + quantities \u2014 enough detail to lock scope and return a fixed price.",
+        "price_ex_gst": 800,
+        "credit_consult": true
+      },
+      {
+        "name": "Design Pack",
+        "description": "Plans, 3D renders + moodboard \u2014 see it before you build it.",
+        "price_ex_gst": 2200,
+        "credit_consult": false
+      },
+      {
+        "name": "Landscape Concept Design",
+        "description": "Full outdoor concept across the whole site \u2014 deck, landscaping and hardscape planned as one.",
+        "price_ex_gst": 3500,
+        "credit_consult": true
+      }
+    ]
+  }
+}

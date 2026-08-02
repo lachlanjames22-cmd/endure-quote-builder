@@ -376,6 +376,7 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
     <button class="tb-item" onclick="tbGo('jobSetupCard')">Concept pages (in Job setup)</button>
     <div class="tb-note">Templates grow here — similar projects bank is on the roadmap.</div>
   </div></div>
+  <a class="tb-btn" href="/ballpark" style="text-decoration:none;">Ballpark 🚧</a>
   <span class="tb-spacer"></span>
   <button class="tb-save" onclick="saveProjectToDrive()">💾 Save project</button>
 </div>
@@ -1056,6 +1057,7 @@ function defaultState(){
     ex: {type:'Stairs', custom:'', qty:'', rateOv:null, costOv:null, labour:'', margin:''},
     ed: {extras:[], editingName:null, origBoard:null},
     rec:null, recipeLib:[],
+    savedClean:false,
     extras:[], extrasLib:[],
     calcTab:'deck',
     bundles: [],
@@ -1769,6 +1771,17 @@ function manualAsOptions(){
   });
 }
 function effOptions(){ return S.mode==='range' ? S.options.concat(manualAsOptions()) : S.options; }
+function duplicateHero(i){
+  // works for EVERY hero type — recipe, custom and calculator alike
+  const b=S.bundles[i]; if(!b) return;
+  let name=b.name+' (copy)', k=2;
+  while(bundleByName(name)) name=b.name+' (copy '+(k++)+')';
+  const nb=JSON.parse(JSON.stringify(b)); nb.name=name;
+  S.bundles.push(nb);
+  linesIn(b.name).forEach(function(c){ const nc=JSON.parse(JSON.stringify(c)); nc.bundle=name; S.costLines.push(nc); });
+  renderBundles(); renderCostLines(); refresh();
+  notify('"'+b.name+'" duplicated as "'+name+'" — edit the copy, then use "In costings" to pick which one the maths follows.');
+}
 function addCustomHero(){
   const name = (val('newHeroName')||'').trim() || ('Custom hero '+(S.bundles.length+1));
   if(bundleByName(name)){ notify('A bundle called "'+name+'" already exists.'); return; }
@@ -2039,6 +2052,7 @@ function renderBundles(){
         <span>Recipe · ${(b.recipe.mats||[]).length} material${(b.recipe.mats||[]).length===1?'':'s'} · ${(b.recipe.labs||[]).length} labour task${(b.recipe.labs||[]).length===1?'':'s'} · ${escA(b.recipe.days||0)}d</span>
         <button class="reset-btn" onclick="editRecipe(${i})">✎ edit recipe</button>
       </div>`:''}
+      ${!b.params?`<div style="margin-top:6px;"><button class="reset-btn" onclick="duplicateHero(${i})">⧉ duplicate</button></div>`:''}
       ${b.isHero?`<div class="grid3" style="margin-top:8px;">
         <div class="field" style="margin:0;"><label>Photo</label>${materialSelect(b.imgSel, "S.bundles["+i+"].imgSel=this.value; renderBundles(); refresh();")}
           ${b.imgSel===CUSTOM?`<input type="text" class="custom-inp" placeholder="Image filename" value="${escA(b.imgCustom)}" oninput="S.bundles[${i}].imgCustom=this.value">`:''}
@@ -2837,7 +2851,10 @@ function checkPaymentTotal(){
   document.getElementById('paymentWarn').textContent = Math.abs(sum-100)>0.01 ? 'Payment schedule sums to '+sum+'%, not 100% — check before saving.' : '';
 }
 let refreshTimer=null;
+let _bootDone=false;
 function refresh(){
+  if(_bootDone && S.savedClean){ S.savedClean=false; }
+  if(_bootDone) updatePdfGate();
   S.qc.area=val('qc_area'); S.qc.bins=val('qc_bins'); S.qc.delivery=val('qc_delivery'); S.qc.demo=val('qc_demo');
   S.qc.boardCustom=val('qc_board_custom'); S.qc.boardCostCustom=val('qc_board_cost_custom');
   const ae0 = document.activeElement;
@@ -3238,11 +3255,24 @@ function buildJobData(clientName){
   return data;
 }
 
+function pdfGateActive(){ return !hasCowork() && ENDURE_ENDPOINT !== 'PASTE_WEBAPP_URL_HERE'; }
+function updatePdfGate(){
+  const btn = document.getElementById('pdfBtn'); if(!btn) return;
+  if(!pdfGateActive()){ btn.disabled=false; return; }
+  btn.disabled = !S.savedClean;
+  btn.style.opacity = S.savedClean ? '' : '.55';
+  btn.title = S.savedClean ? '' : 'Save to Drive first — the save files the job folder AND logs the quote; then the PDF unlocks.';
+}
 async function generatePdf(){
   const statusEl = document.getElementById('statusLine');
   const btn = document.getElementById('pdfBtn');
   const clientName = val('client_name').trim();
   if(!clientName){ statusEl.className='status-line err'; statusEl.textContent='Client name is required before generating.'; return; }
+  if(pdfGateActive() && !S.savedClean){
+    statusEl.className='status-line err';
+    statusEl.textContent='Save to Drive first — saving files the job folder and logs the quote for the pipeline. The PDF unlocks straight after (re-saving the same job updates it, no duplicates).';
+    return;
+  }
   btn.disabled=true; statusEl.className='status-line'; statusEl.textContent='Rendering PDF…';
   try{
     const data = buildJobData(clientName);
@@ -3740,6 +3770,7 @@ async function saveJob(){
         attachments:S.ic.attachments.map(function(a){return {name:a.name, mime:a.mime||'image/jpeg', b64:a.dataUrl.split(',')[1]};})});
       if(!resp || !resp.ok) throw new Error((resp&&resp.error)||'Endpoint save failed.');
       statusEl.className='status-line ok';
+      S.savedClean = true; updatePdfGate();
       statusEl.innerHTML = 'Saved. Job folder: <a class="folder-link" href="'+(resp.folderUrl||'#')+'" target="_blank">'+esc(folderName)+'</a>'
         +(resp.logged?' · logged to the Quote Log ✓':' · <span style="color:var(--red);">Quote Log append failed — add the row by hand</span>')
         +' — now ask Claude to generate the '+(S.mode==='range'?'proposal':'quote')+' for '+esc(clientName)+'.';
@@ -3822,6 +3853,8 @@ renderRecipe(); renderRecipeLib();
 renderExtras();
 applyChapter();
 syncPvModeUI();
+updatePdfGate();
+_bootDone=true;
 syncFinanceInputs();
 refresh();
 loadHostedRates();
