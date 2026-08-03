@@ -650,15 +650,24 @@ def _find_in_folder(drive, folder_id, name):
     return res[0]["id"] if res else None
 
 
+_ACCEPT_FLAG = {"ts": 0.0, "val": False}
+
+
 def accept_links_enabled():
+    import time
+    now = time.time()
+    if now - _ACCEPT_FLAG["ts"] < 30:
+        return _ACCEPT_FLAG["val"]
+    val = _ACCEPT_FLAG["val"]  # keep last known state if Drive hiccups
     try:
         drive = build("drive", "v3", credentials=_creds(), cache_discovery=False)
         fid = _find_in_folder(drive, JOBS, "_Accept Links.json")
-        if not fid:
-            return False
-        return bool(json.loads(drive.files().get_media(fileId=fid).execute()).get("enabled"))
+        val = bool(fid and json.loads(drive.files().get_media(fileId=fid).execute()).get("enabled"))
     except Exception:  # noqa: BLE001
-        return False
+        pass
+    _ACCEPT_FLAG["ts"] = now
+    _ACCEPT_FLAG["val"] = val
+    return val
 
 
 def accept_links_set(body):
@@ -667,27 +676,36 @@ def accept_links_set(body):
     media = MediaIoBaseUpload(io.BytesIO(json.dumps({"enabled": enabled}).encode()),
                               mimetype="application/json")
     _upsert_file(drive, JOBS, "_Accept Links.json", media)
+    import time
+    _ACCEPT_FLAG["ts"] = time.time()
+    _ACCEPT_FLAG["val"] = enabled
     return {"ok": True, "enabled": enabled}
 
 
 def _read_job_folder(token):
-    """token → (drive, folder_id, job_data, acceptance|None). Raises on bad token."""
+    """token → (drive, folder_id, job_data, acceptance|None, filed_pdf_id|None).
+    One folder list + minimal reads — this is the accept page's hot path."""
     fid = _accept_folder_id(token)
     if not fid:
         raise ValueError("bad link")
     drive = build("drive", "v3", credentials=_creds(), cache_discovery=False)
-    jd_id = _find_in_folder(drive, fid, "job-data.json")
+    res = drive.files().list(q=f"'{fid}' in parents and trashed = false",
+                             fields="files(id, name)", pageSize=100, supportsAllDrives=True,
+                             includeItemsFromAllDrives=True, corpora="allDrives").execute().get("files", [])
+    byname = {f["name"]: f["id"] for f in res}
+    jd_id = byname.get("job-data.json")
     if not jd_id:
         raise ValueError("quote not found")
     jd = json.loads(drive.files().get_media(fileId=jd_id).execute())
     acc = None
-    acc_id = _find_in_folder(drive, fid, "acceptance.json")
-    if acc_id:
+    if byname.get("acceptance.json"):
         try:
-            acc = json.loads(drive.files().get_media(fileId=acc_id).execute())
+            acc = json.loads(drive.files().get_media(fileId=byname["acceptance.json"]).execute())
         except Exception:  # noqa: BLE001
             acc = None
-    return drive, fid, jd, acc
+    pdf_id = next((i for nm, i in byname.items()
+                   if nm.lower().endswith(("_quote.pdf", "_proposal.pdf"))), None)
+    return drive, fid, jd, acc, pdf_id
 
 
 _ACCEPT_CSS = """
@@ -696,7 +714,7 @@ _ACCEPT_CSS = """
 font-family:'Segoe UI',Arial,sans-serif;font-size:14px;}
 .top{background:var(--ink);color:#F7F1E4;display:flex;align-items:center;gap:12px;padding:14px 22px;}
 .top .badge{border:1px solid var(--mdeep);color:var(--mdeep);padding:4px 10px;font-size:11px;font-weight:700;letter-spacing:.14em;}
-.wrap{max-width:640px;margin:0 auto;padding:26px 18px 70px;}
+.wrap{max-width:720px;margin:0 auto;padding:26px 18px 70px;}
 .card{background:#fffdf8;border:1px solid var(--rule);border-radius:10px;padding:26px 28px;margin-bottom:16px;}
 h1{font-family:Georgia,serif;font-size:26px;margin:0 0 6px;}
 .eyebrow{font-size:11px;letter-spacing:.18em;color:var(--mdeep);text-transform:uppercase;font-weight:700;}
@@ -713,6 +731,35 @@ input[type=text],input[type=email]{width:100%;padding:10px;border:1px solid var(
 .status.ok{color:#2f8e4e;font-weight:700;}
 .done{background:#eaf6ee;border:1px solid #bfe3cb;border-radius:8px;padding:16px 18px;font-size:14px;}
 .fine{font-size:11px;color:var(--grey);margin-top:14px;line-height:1.6;}
+.item{display:flex;gap:14px;border:1px solid var(--rule);border-radius:8px;padding:14px;margin-top:12px;background:#fff;}
+.item img{width:110px;height:82px;object-fit:cover;border-radius:6px;flex:none;}
+.item .nm{font-weight:700;font-size:15px;}
+.item .spec{font-size:11px;color:var(--mdeep);font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin:2px 0;}
+.item .desc{font-size:12.5px;color:var(--grey);margin:4px 0 6px;line-height:1.5;}
+.item ul{margin:0;padding-left:16px;font-size:12px;color:var(--ink);}
+.item li{margin-bottom:2px;}
+.item .pr{font-family:Georgia,serif;font-size:17px;margin-top:6px;}
+.lines{border:1px solid var(--rule);border-radius:8px;overflow:hidden;margin-top:12px;background:#fff;}
+.lhead{display:flex;justify-content:space-between;background:var(--ink);color:#fff;padding:9px 14px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;}
+.line{display:flex;justify-content:space-between;gap:12px;padding:10px 14px;border-top:1px solid var(--rule);font-size:13px;}
+.line:first-of-type{border-top:none;}
+.line .desc{font-size:11px;color:var(--grey);margin-top:1px;}
+.line .amt{font-weight:600;white-space:nowrap;}
+.ltotal{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:12px 14px;border-top:2px solid var(--ink);background:var(--cream);}
+.ltotal .nm{font-weight:700;}
+.ltotal .inc{font-family:Georgia,serif;font-size:20px;}
+.ltotal .ex{font-size:11px;color:var(--grey);}
+.sched{display:flex;gap:6px;margin-top:10px;}
+.sched>div{flex:1;background:var(--ink);border-radius:6px;text-align:center;padding:9px 2px 7px;}
+.sched .pct{color:var(--mdeep);font-weight:800;font-size:15px;}
+.sched .lab{color:#fff;font-size:9.5px;margin-top:1px;}
+.sect{font-size:12px;font-weight:800;color:var(--mdeep);letter-spacing:.08em;text-transform:uppercase;margin:22px 0 4px;}
+.incl{font-size:12.5px;line-height:1.6;border:1px solid var(--rule);border-radius:8px;padding:12px 14px;background:#fff;margin-top:8px;}
+.rangecard{border:1px solid var(--rule);border-radius:8px;padding:14px;margin-top:12px;background:#fff;}
+.rangecard .nm{font-weight:700;font-size:15px;}
+.rangecard .pr{font-family:Georgia,serif;font-size:19px;margin:4px 0 1px;}
+.rangecard .sub2{font-size:11px;color:var(--grey);}
+@media (max-width:520px){.item{flex-direction:column;}.item img{width:100%;height:150px;}.sched{flex-wrap:wrap;}.sched>div{min-width:30%;}}
 """
 
 
@@ -733,31 +780,109 @@ def _fmt_inc(v):
         return ""
 
 
+def _esc_h(s):
+    return str(s if s is not None else "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _img_src_web(img):
+    s = str(img or "")
+    if not s:
+        return ""
+    return s if s.startswith("data:") else "/assets/" + s
+
+
+def _quote_body_html(jd):
+    """The quote itself, as scrollable HTML — same data the PDF renders from."""
+    fx = jd.get("fixed") or {}
+    parts = []
+    fp = fx.get("your_project") or {}
+    items = render_proposal._your_project_items(fp)
+    if fp.get("summary_line"):
+        parts.append(f"<p style='font-size:13.5px;color:var(--grey);line-height:1.6;margin:6px 0 0;'>{_esc_h(fp['summary_line'])}</p>")
+    if items:
+        parts.append("<div class='sect'>Your project</div>")
+        for it in items:
+            img = _img_src_web(it.get("image"))
+            img_html = f"<img src='{img}' alt=''>" if img else ""
+            bul = "".join(f"<li>{_esc_h(b)}</li>" for b in it.get("bullets", []) if b)
+            price = ""
+            if it.get("price_inc_gst") not in (None, ""):
+                price = f"<div class='pr'>{_fmt_inc(it['price_inc_gst'])} <span style='font-size:11px;color:var(--grey);'>inc GST</span></div>"
+            parts.append(
+                f"<div class='item'>{img_html}<div>"
+                f"<div class='nm'>{_esc_h(it.get('label') or 'Endure Install')}</div>"
+                f"<div class='spec'>{_esc_h(it.get('spec_label'))}</div>"
+                f"<div class='desc'>{_esc_h(it.get('description'))}</div>"
+                f"<ul>{bul}</ul>{price}</div></div>")
+    lines = fx.get("cost_lines") or []
+    if lines:
+        parts.append("<div class='sect'>Cost breakdown</div><div class='lines'>")
+        parts.append(f"<div class='lhead'><div>{_esc_h(fx.get('package_label', 'Your project'))}</div><div>inc GST</div></div>")
+        for l in lines:
+            desc = f"<div class='desc'>{_esc_h(l.get('desc'))}</div>" if l.get("desc") else ""
+            parts.append(f"<div class='line'><div>{_esc_h(l.get('label'))}{desc}</div>"
+                         f"<div class='amt'>{_fmt_inc(l.get('amount'))}</div></div>")
+        parts.append(f"<div class='ltotal'><div><div class='nm'>Total project price</div>"
+                     f"<div class='ex'>{_fmt_inc(fx.get('subtotal_ex_gst'))} ex GST</div></div>"
+                     f"<div class='inc'>{_fmt_inc(fx.get('total_inc_gst'))} inc GST</div></div></div>")
+    if fx.get("included") or fx.get("excluded"):
+        parts.append("<div class='sect'>What's included &middot; what's not</div><div class='incl'>")
+        if fx.get("included"):
+            parts.append(f"<p style='margin:0 0 6px;'><strong>Included:</strong> {_esc_h(fx['included'])}</p>")
+        if fx.get("excluded"):
+            parts.append(f"<p style='margin:0;'><strong>Not included:</strong> {_esc_h(fx['excluded'])}</p>")
+        parts.append("</div>")
+    sched = (jd.get("project_run") or {}).get("payment_schedule") or []
+    if sched:
+        parts.append("<div class='sect'>Payment schedule</div><div class='sched'>")
+        for p in sched:
+            parts.append(f"<div><div class='pct'>{_esc_h(p.get('pct'))}%</div><div class='lab'>{_esc_h(p.get('label'))}</div></div>")
+        parts.append("</div>")
+    parts.append("<p class='fine'>Built to the Endure 20-Year Standard. The attached/linked PDF is the formal document; this page presents the same quote for easy reading.</p>")
+    return "".join(parts)
+
+
+def _range_body_html(jd):
+    r = jd.get("range") or {}
+    parts = []
+    for opt in r.get("options") or []:
+        parts.append(
+            f"<div class='rangecard'><div class='nm'>{_esc_h(opt.get('label'))}</div>"
+            f"<div class='pr'>{_fmt_inc(opt.get('price_low_inc_gst'))} &ndash; {_fmt_inc(opt.get('price_high_inc_gst'))}</div>"
+            f"<div class='sub2'>inc GST &middot; {_esc_h(opt.get('size_label'))}</div>"
+            f"<div class='desc' style='font-size:12.5px;color:var(--grey);margin-top:6px;line-height:1.5;'>{_esc_h(opt.get('spec_line'))}</div></div>")
+    return "".join(parts)
+
+
 def accept_page(token):
     if not accept_links_enabled():
         return _accept_shell("<div class='card'><h1>Online acceptance isn't available right now</h1>"
                              "<p class='sub'>Reply to the email your quote came with and we'll take it from there.</p></div>")
     try:
-        drive, fid, jd, acc = _read_job_folder(token)
+        drive, fid, jd, acc, pdf_id = _read_job_folder(token)
     except Exception:  # noqa: BLE001
         return _accept_shell("<div class='card'><h1>This link isn't valid</h1>"
                              "<p class='sub'>Check the link in your email, or reply to it and we'll resend.</p></div>")
-    client = jd.get("client_name") or "your project"
-    pdf_btn = f"<a class='btn dark' href='/q/{token}/pdf' target='_blank'>View the full quote (PDF)</a>"
+    client = _esc_h(jd.get("client_name") or "your project")
+    pdf_btn = f"<a class='btn dark' href='/q/{token}/pdf' target='_blank'>Open the PDF version</a>"
     if jd.get("mode") != "fixed":
         inner = (f"<div class='card'><div class='eyebrow'>Proposal</div><h1>Proposal for {client}</h1>"
-                 "<p class='sub'>This document presents a priced range and the options for your project. "
-                 "The next step is agreeing the option and scope together — reply to the email this came with "
-                 "and we'll take it from there.</p><div style='margin-top:16px;'>" + pdf_btn + "</div></div>")
+                 "<p class='sub'>A priced range and the options for your project — the full detail is in the document. "
+                 "The next step is agreeing the option and scope together: reply to the email this came with.</p>"
+                 + _range_body_html(jd) +
+                 "<div style='margin-top:16px;'>" + pdf_btn + "</div></div>")
         return _accept_shell(inner)
     total = _fmt_inc((jd.get("fixed") or {}).get("total_inc_gst"))
+    doc_html = _quote_body_html(jd)
+    head_card = (f"<div class='card'><div class='eyebrow'>Fixed quote</div><h1>Quote for {client}</h1>"
+                 f"<div class='total'>{total}</div><div class='sub'>inc GST &middot; fixed price &middot; "
+                 "everything below is the full quote</div>"
+                 f"<div style='margin-top:12px;'>{pdf_btn}</div>{doc_html}</div>")
     if acc:
-        inner = (f"<div class='card'><div class='eyebrow'>Quote</div><h1>Quote for {client}</h1>"
-                 f"<div class='total'>{total}</div><div class='sub'>inc GST</div>"
-                 f"<div class='done' style='margin-top:18px;'><strong>Accepted</strong> by {acc.get('name','')} "
-                 f"on {str(acc.get('ts',''))[:10]}. We'll be in touch about the deposit and start date — "
-                 "nothing more to do here.</div>"
-                 "<div style='margin-top:16px;'>" + pdf_btn + "</div></div>")
+        inner = (head_card +
+                 f"<div class='card'><div class='done'><strong>Accepted</strong> by {_esc_h(acc.get('name'))} "
+                 f"on {_esc_h(str(acc.get('ts'))[:10])}. We'll be in touch about the deposit and start date &mdash; "
+                 "nothing more to do here.</div></div>")
         return _accept_shell(inner)
     form = (
         "<label>Your full name</label><input type='text' id='accName' placeholder='Full name'>"
@@ -766,7 +891,7 @@ def accept_page(token):
         "<span>I accept this quote and the terms set out in the quote document.</span></div>"
         "<button class='btn primary' id='accBtn'>Accept this quote</button>"
         "<div class='status' id='accSt'></div>"
-        "<div class='fine'>Accepting records your name, the date and time. It doesn't take any payment — "
+        "<div class='fine'>Accepting records your name, the date and time. It doesn't take any payment &mdash; "
         "we'll confirm the deposit and start date with you by email. Questions first? Just reply to the "
         "email this quote came with.</div>")
     js = """<script>
@@ -790,9 +915,7 @@ document.getElementById('accBtn').onclick = async function(){
   }catch(e){ st.textContent='Something went wrong \u2014 reply to the email instead.'; this.disabled = false; }
 };
 </script>"""
-    inner = (f"<div class='card'><div class='eyebrow'>Quote</div><h1>Quote for {client}</h1>"
-             f"<div class='total'>{total}</div><div class='sub'>inc GST &middot; full breakdown in the document</div>"
-             "<div style='margin:16px 0 6px;'>" + pdf_btn + "</div></div>"
+    inner = (head_card +
              "<div class='card'><div class='eyebrow'>Ready to go ahead?</div>" + form + "</div>" + js)
     return _accept_shell(inner)
 
@@ -815,7 +938,7 @@ def record_acceptance(token, body, ip, ua):
     if not accept_links_enabled():
         return {"ok": False, "error": "Online acceptance isn't available right now — reply to the email instead."}
     try:
-        drive, fid, jd, acc = _read_job_folder(token)
+        drive, fid, jd, acc, _pdf = _read_job_folder(token)
     except Exception:  # noqa: BLE001
         return {"ok": False, "error": "This link isn't valid."}
     if jd.get("mode") != "fixed":
@@ -860,14 +983,17 @@ def record_acceptance(token, body, ip, ua):
 
 
 def accept_pdf(token):
-    drive, fid, jd, acc = _read_job_folder(token)
+    drive, fid, jd, acc, pdf_id = _read_job_folder(token)
     client = (jd.get("client_name") or "Client").strip()
     slug = re.sub(r"[^A-Za-z0-9]+", "_", client).strip("_") or "Client"
     doc_name = f"{slug}_{'Proposal' if jd.get('mode') == 'range' else 'Quote'}.pdf"
-    with tempfile.TemporaryDirectory() as td:
-        out_pdf = os.path.join(td, doc_name)
-        render_proposal.render(jd, out_pdf)
-        pdf_bytes = open(out_pdf, "rb").read()
+    if pdf_id:  # the PDF filed at save time — instant, and identical to what was sent
+        pdf_bytes = drive.files().get_media(fileId=pdf_id).execute()
+    else:  # fallback: fresh render
+        with tempfile.TemporaryDirectory() as td:
+            out_pdf = os.path.join(td, doc_name)
+            render_proposal.render(jd, out_pdf)
+            pdf_bytes = open(out_pdf, "rb").read()
     return Response(pdf_bytes, media_type="application/pdf",
                     headers={"Content-Disposition": f'inline; filename="{doc_name}"'})
 
