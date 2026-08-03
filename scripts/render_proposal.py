@@ -740,6 +740,59 @@ def page_why_range(d, n, status_label):
   </div>
 {foot(n)}</div></div>'''
 
+CONSULT_CHECKS = [
+    ('01', 'Measure & access', 'Real dimensions, not the ones from memory — plus how materials and crew actually get to the build zone. Access is the silent cost on most quotes.'),
+    ('02', 'Levels & subframe', 'Fall across the site, finished height, what the subframe really needs. This is where two "same size" decks end up thousands apart.'),
+    ('03', 'Water & ventilation', 'Where water goes and how the deck breathes underneath. The two things that decide whether it lasts twenty years or seven.'),
+    ('04', 'Boards in your hand', 'Samples on your site, in your light, against your house. Colours lie in showrooms.'),
+    ('05', 'The honest conversation', 'What we would build, what we would not, and why. If your site suits a cheaper build than you planned, you hear that too.'),
+]
+
+def page_consult_value(d, n, status_label):
+    bp = d.get('ballpark_next', {})
+    fee_ex = bp.get('consult_fee_ex_gst', 200)
+    fee_inc = round(fee_ex * 1.1)
+    checks_html = ''.join(
+        f'<div class="std-item"><div class="std-headrow"><span class="std-num">{num}</span>'
+        f'<span class="std-head">{h}</span></div><div class="std-body">{b}</div></div>'
+        for num, h, b in CONSULT_CHECKS)
+    outcomes = [
+        ('A price that doesn&rsquo;t move', 'Not a range, not an estimate — a fixed-price quote built from your actual site. Simple jobs are often priced on the spot; every job has its number within 48 hours.'),
+        ('A build you can picture', 'Board choice settled, levels resolved, timeline mapped. You&rsquo;ll know exactly what you&rsquo;re getting before you commit a dollar to the build.'),
+        ('Your fee back', f'The {fmt_money(fee_inc)} consult fee is credited straight off your build. If you build with us, the consult cost you nothing.'),
+    ]
+    outcomes_html = ''.join(
+        f'<div class="appr-card" style="border-left:3px solid var(--mustard-deep);"><div style="min-width:0;">'
+        f'<div class="nm">{h}</div>'
+        f'<div style="font-size:9pt;color:var(--grey);margin-top:1mm;">{b}</div></div></div>'
+        for h, b in outcomes)
+    return f'''<div class="page">{head(f"{status_label} &middot; {n:02d}")}<div class="pbody">
+  <div class="eyebrow">Where the real value is</div>
+  {title_html(d, "consult", 'The ballpark is a compass. <span class="mustard">The consult is the map.</span>')}
+  <div class="intro-grid">
+    <div>
+      <div class="thread-lab">Why this document stays broad on purpose</div>
+      <div class="intro-letter">
+        <p>We could have printed a precise-looking number here. It would be a guess dressed up
+        as a promise, and you&rsquo;d wear the difference later as variations. The range is
+        honest; the precision comes from standing on your site. That&rsquo;s not a sales step
+        &mdash; it&rsquo;s where the actual work of pricing happens.</p>
+      </div>
+      <div class="thread-lab" style="margin-top:4mm;">What you walk away with</div>
+      <div class="appr-cards" style="grid-template-columns:1fr;gap:2.5mm;margin-top:2mm;">{outcomes_html}</div>
+    </div>
+    <div>
+      <div class="thread-lab">What 45 minutes on site settles</div>
+      <div class="std-list">{checks_html}</div>
+    </div>
+  </div>
+  <div class="accept-block" style="margin-top:4mm;"><div class="accept-text" style="font-size:10pt;">
+    <strong>Not ready yet? That&rsquo;s fine.</strong> This range doesn&rsquo;t expire next week and nobody
+    will chase you. Keep this document, take your time, get other quotes &mdash; and when you want a real
+    number instead of guesses, the consult is the step that gets you one.
+  </div></div>
+{foot(n)}</div></div>'''
+
 def page_next_step_ballpark(d, n, status_label):
     r = d['range']
     bp = d.get('ballpark_next', {})
@@ -1064,13 +1117,16 @@ def render(d, out_pdf):
         return inc.get(key, True) is not False
     if d.get('ballpark'):
         # Ballpark flavour: cover → why-a-range education page → range card →
-        # booking-focused next step. No signatures, no finance, no project run.
+        # consult-value page (sells the site assessment — the doc's real CTA)
+        # → booking-focused next step. No signatures, no finance, no project run.
         n = 1
         pages = [page_cover(d, n)]; n += 1
         if on('approach'):
             pages.append(page_why_range(d, n, status_label)); n += 1
         cost_pages = pages_cost_range(d, n, status_label)
         pages.extend(cost_pages); n += len(cost_pages)
+        if on('consult_value'):
+            pages.append(page_consult_value(d, n, status_label)); n += 1
         pages.append(page_next_step_ballpark(d, n, status_label)); n += 1
         DOC = "<!DOCTYPE html><html><head><meta charset='utf-8'>" + CSS + "</head><body>" + "".join(pages) + "</body></html>"
         HTML(string=DOC).write_pdf(out_pdf)

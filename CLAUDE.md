@@ -72,8 +72,12 @@ internal-costing.json, site photos). Deploys to **quote.enduredecks.com.au**.
   Contracts & templates dropdowns, Save project button.
 - Ballpark lane (Cowork-built, ported 2026-08-02): /ballpark calculator page
   (🚧 banner removed 2026-08-02 — live for real use) + `ballpark:true` job-data flag
-  routing render_proposal.py to a 4-page range-estimate doc (cover, why-a-range,
-  range card, consult next-step; complex lane adds design tiers). Email send
+  routing render_proposal.py to a 5-page range-estimate doc (cover, why-a-range,
+  range card, consult-value page, consult next-step; complex lane adds design
+  tiers). The consult-value page (2026-08-02) is the doc's real CTA: the
+  ballpark deliberately stays broad — the page sells the site assessment
+  (what 45 min settles, what you walk away with, fee credited) and closes
+  with a no-pressure "not ready yet" block aimed at slow movers. Email send
   (`action:'send_ballpark'`, wired 2026-08-02 with Lachy): sends FROM Matt's
   address (SEND_EMAIL_USER) with the ballpark PDF attached, BCC to SEND_BCC,
   logs a lead row to the "Ballparks" tab of _Quote Log. Railway BLOCKS
