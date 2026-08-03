@@ -8,9 +8,11 @@
 :root{ --cream:#F7F1E4; --ink:#1A1815; --grey:#6e6e6e; --rule:#e3dccf; --mustard:#C09A45; --mdeep:#B7872F; --card:#fffdf8; --green:#2f8e4e; --red:#b3392c; }
 *{box-sizing:border-box;}
 body{margin:0;background:var(--cream);color:var(--ink);font-family:'Segoe UI',Arial,sans-serif;font-size:13px;}
-.top{background:var(--ink);color:var(--cream);padding:12px 20px;display:flex;align-items:center;gap:12px;}
-.top .badge{border:1px solid var(--mdeep);color:var(--mdeep);padding:4px 10px;font-size:11px;font-weight:700;letter-spacing:.14em;}
-.top .t{font-family:'EB Garamond',Georgia,serif;font-size:18px;}
+.top{position:sticky;top:0;z-index:500;background:var(--ink);color:var(--cream);display:flex;align-items:center;gap:6px;padding:0 20px;height:52px;box-shadow:0 1px 8px rgba(0,0,0,.25);}
+.top .tb-logo{height:34px;display:block;margin-right:14px;}
+.top .t{font-family:'EB Garamond',Georgia,serif;font-size:17px;}
+.top .tb-btn{background:none;border:none;color:var(--cream);font-size:12.5px;font-weight:600;letter-spacing:.04em;padding:10px 12px;cursor:pointer;border-radius:5px;text-decoration:none;}
+.top .tb-btn:hover{background:#2b2823;color:#fff;}
 .wrap{max-width:960px;margin:0 auto;padding:18px 18px 60px;display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;}
 .col{flex:1;min-width:320px;}
 .card{background:var(--card);border:1px solid var(--rule);border-radius:8px;padding:16px 18px;margin-bottom:14px;}
@@ -41,8 +43,12 @@ textarea{width:100%;min-height:180px;border:1px solid var(--rule);border-radius:
 </style>
 </head>
 <body>
-<div class="top"><span class="badge">ENDURE DECKS</span><span class="t">Ballpark calculator</span>
-<span style="margin-left:auto;font-size:11px;color:#bdb8a8;">Ranges match enduredecks.com.au/pricing</span></div>
+<div class="top">
+  <img class="tb-logo" src="/assets/logo.png" alt="Endure Decks" onerror="this.style.display='none'">
+  <a class="tb-btn" href="/">← Quote builder</a>
+  <span class="t">Ballpark calculator</span>
+  <span style="margin-left:auto;font-size:11px;color:#bdb8a8;">Ranges match enduredecks.com.au/pricing</span>
+</div>
 <div class="wrap">
 
   <div class="col">
@@ -79,7 +85,7 @@ textarea{width:100%;min-height:180px;border:1px solid var(--rule);border-radius:
           <div class="seg" id="segD"><button class="on" data-v="no">No</button><button data-v="yes">Yes</button></div></div>
         <div><label>Next step lane</label>
           <div class="seg" id="segL"><button class="on" data-v="standard">Standard</button><button data-v="complex">Complex</button></div>
-          <div class="lanehint" id="laneHint">Big / raised job — consider the Complex lane (consult + design service).</div></div>
+          <div class="lanehint" id="laneHint">Big / raised job — consider the Complex lane (Site Assessment + design service).</div></div>
       </div>
     </div>
     <div class="card">
@@ -92,9 +98,9 @@ textarea{width:100%;min-height:180px;border:1px solid var(--rule);border-radius:
       <h2>How Matt uses this</h2>
       <div class="steps">
         <b>1.</b> Punch in the lead — 30 seconds.<br>
-        <b>2.</b> <b>Copy email</b> → paste into Gmail.<br>
-        <b>3.</b> <b>Download ballpark file</b> → attach it in the Claude chat, say “render the ballpark” → attach the PDF to the email. Send.<br>
-        <span style="color:var(--mdeep);">When this ships to the server, steps 2–3 become one Send button.</span>
+        <b>2.</b> <b>Prefill from this lead</b> in the Send email card, tweak the words if you like.<br>
+        <b>3.</b> <b>Send — PDF attached.</b> Goes from your address, sales BCC'd, lead logged. Done.<br>
+        <span style="color:var(--mdeep);">Fallback if sending plays up: Generate PDF + Copy email, send it yourself.</span>
       </div>
     </div>
   </div>
@@ -108,7 +114,7 @@ textarea{width:100%;min-height:180px;border:1px solid var(--rule);border-radius:
     </div>
     <div class="card" style="margin-top:14px;">
       <h2>Send it</h2>
-      <p class="d">Exact price is set at the site consult — $220 inc GST, credited off the build.</p>
+      <p class="d">Exact price is set at the Site Assessment — $250, credited in full off the build.</p>
       <button class="btn primary" onclick="generatePdf()">Generate branded PDF</button>
       <button class="btn primary" id="btnEmail" style="background:#1A1815;" onclick="copyEmail()">Copy email</button>
       <button class="btn secondary" onclick="downloadJob()">Download ballpark file (job data)</button>
@@ -187,7 +193,7 @@ function calc(){
   const b = boardBounds(key, area);
   let lo = b.lo, hi = b.hi;
   const notes = [];
-  if(area < 20){ notes.push('Under ~20m² a small-job loading applies — priced at consult.'); }
+  if(area < 20){ notes.push('Under ~20m² a small-job loading applies — priced at the Site Assessment.'); }
   if(S.h === 'raised'){ lo *= 1.12; hi *= 1.12; notes.push('Raised: +12% allowed.'); }
   if(S.a === 'tricky'){ lo *= 1.05; hi *= 1.08; notes.push('Tricky access allowed for.'); }
   if(S.d === 'yes'){ const demo = area*35 + 200; lo += demo; hi += demo; notes.push('Includes old-deck removal allowance.'); }
@@ -231,8 +237,8 @@ function firstName(){ return (document.getElementById('nm').value.trim().split(/
 function emailText(){
   const o = calc(), nm = document.getElementById('nm').value.trim() || 'there', sb = document.getElementById('sb').value.trim();
   const nextStep = S.lane === 'standard'
-    ? "It's a range, not a quote — access, levels and final board choice move the number. One 45-minute site consult locks it to a fixed price within 48 hours (simple jobs often get it on the spot). The consult is $220, and it comes straight off your build if you go ahead."
-    : "It's a range, not a quote — projects like yours are the detailed kind, so the path to a fixed price starts with a 45-minute site consult ($220, credited off your build), then working drawings or a design pack so the scope is locked before we price it to the dollar.";
+    ? "It's a range for projects like yours, not your number yet — levels, access, subframe and what's already on site all move it. Our 45-minute Site Assessment isn't another quote step, it's the start of your build — most simple decks get their fixed price on the spot. $250, credited in full."
+    : "It's a range for projects like yours, not your number yet — and yours looks like the detailed kind. Our 45-minute Site Assessment is the start of your build, not another quote step — we map the whole space, and if drawings or council approvals are needed, we handle that too. $250, credited in full.";
   return {
     subject: 'Your ballpark for the deck — ' + (nm.split(/\s+/)[0]) + (sb ? ', ' + sb : ''),
     body: 'Hi ' + firstName() + ',\n\n'
@@ -267,30 +273,30 @@ function buildBallparkJob(){
   const job = {
     mode:'range', ballpark:true,
     client_name:nm,
-    cover_subtitle:'A ballpark for your ~'+o.area+'m² '+o.label+' deck'+(sb?' in '+sb:'')+' — so you know where you stand before we measure a thing.',
+    cover_subtitle:'What a ~'+o.area+'m² '+o.label+' deck'+(sb?' in '+sb:'')+' typically costs — before we\u2019ve measured a thing.',
     prepared_for:nm, location:sb||'Perth', proposal_date:today,
     status_label:'Ballpark Estimate', eyebrow_tag:'Ballpark Estimate · Range Only',
     lead:{email:document.getElementById('em').value.trim(), source:'', lane:S.lane},
-    ballpark_next:{lane:S.lane, consult_fee_ex_gst:200,
+    ballpark_next:{lane:S.lane, consult_fee_inc_gst:250,
       contact:{phone:'', email:'matt@enduredecks.com.au'}, stripe_url:''},
     range:{
       options:[{label:o.label+' deck', image:IMG[o.key]||'', size_label:'approx. '+o.area+'m²'+(S.h==='raised'?', raised':''),
         price_low_inc_gst:o.lo, price_high_inc_gst:o.hi,
         price_low_ex_gst:Math.round(o.lo/1.1), price_high_ex_gst:Math.round(o.hi/1.1),
         spec_line:'Supplied & installed to the Endure 20-Year Standard — subframe, boards, finish and site clean included.'+(S.d==='yes'?' Old-deck removal allowed for.':''),
-        eyebrow:'Ballpark Range'}].concat(cleanOthers().map(x => ({
+        eyebrow:'Projects like this typically land'}].concat(cleanOthers().map(x => ({
           label:x.title, image:'', size_label:'',
           price_low_inc_gst:x.lo, price_high_inc_gst:x.hi,
           price_low_ex_gst:Math.round(x.lo/1.1), price_high_ex_gst:Math.round(x.hi/1.1),
-          spec_line:x.note||'Supplied & installed — priced properly at the site consult.',
+          spec_line:x.note||'Supplied & installed — priced properly at the Site Assessment.',
           eyebrow:'Optional Add-on'}))),
       alt_materials:[],
       scope_items:[
         {label:'Full supply & install — subframe, boards, fixings, finish', value:'Included'},
         {label:'Site clean & rubbish removal', value:'Included'},
         {label:'Built to the Endure 20-Year Standard', value:'Every job'},
-        {label:'Exact price', value:'Set at your site consult', strong:true}],
-      preliminary_note:'This is a ballpark, not a quote — it’s built from your rough dimensions using the same rates we price every job with, and matches the ranges published at enduredecks.com.au/pricing. '+(o.notes.length?o.notes.join(' ')+' ':'')+'One site consult locks it to a fixed price that doesn’t change.',
+        {label:'Exact price', value:'Set at your Site Assessment', strong:true}],
+      preliminary_note:'This is a ballpark, not a quote — it’s built from your rough dimensions using the same rates we price every job with, and matches the ranges published at enduredecks.com.au/pricing. '+(o.notes.length?o.notes.join(' ')+' ':'')+'One Site Assessment locks it to a fixed price that doesn’t change.',
       consult_fee_paid:0,
       design_service_tiers:[
         {name:'Working Drawings', description:'Plans + quantities — enough detail to lock scope and return a fixed price.', price_ex_gst:800, credit_consult:true},
