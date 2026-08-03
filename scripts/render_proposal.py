@@ -1144,8 +1144,6 @@ def render(d, out_pdf):
             pages.append(page_why_range(d, n, status_label)); n += 1
         cost_pages = pages_cost_range(d, n, status_label)
         pages.extend(cost_pages); n += len(cost_pages)
-        if on('consult_value'):
-            pages.append(page_consult_value(d, n, status_label)); n += 1
         pages.append(page_next_step_ballpark(d, n, status_label)); n += 1
         if (d.get('ballpark_next', {}).get('lane') == 'complex'
                 and d['range'].get('design_service_tiers')):
