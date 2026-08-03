@@ -374,6 +374,7 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
   <div class="tb-menu"><button class="tb-btn">Contracts &amp; templates ▾</button><div class="tb-drop">
     <button class="tb-item" onclick="notify('Contract terms are with the lawyer — they land in the document as toggle pages once approved.')">Contract terms (in legal review)</button>
     <button class="tb-item" onclick="tbGo('jobSetupCard')">Concept pages (in Job setup)</button>
+    <button class="tb-item" onclick="toggleAcceptLinks()">🔗 Online accept links — turn on/off (beta)</button>
     <div class="tb-note">Templates grow here — similar projects bank is on the roadmap.</div>
   </div></div>
   <div class="tb-menu"><button class="tb-btn">Ballpark ▾</button><div class="tb-drop">
@@ -887,6 +888,21 @@ width:0;height:0;border-left:1.3mm solid transparent;border-right:1.3mm solid tr
     <div id="icFileList" style="font-size:11.5px;color:var(--grey);margin-top:4px;"></div>
   </div>
 
+  <div class="card" id="sendQuoteCard">
+    <h2 style="margin:0 0 2px;">✉️ Send to client</h2>
+    <span class="hint">Sends from Matt\u2019s address with the branded PDF attached, BCC to the shared inbox. Fixed quotes include the online accept link when accept links are ON (Contracts &amp; templates menu). Save to Drive first \u2014 the send is gated the same as Generate PDF.</span>
+    <label>To</label><input type="email" id="sqTo" placeholder="client@email.com">
+    <details id="sqDetails" style="margin-top:8px;"><summary style="cursor:pointer;font-size:12px;font-weight:600;">Subject &amp; message</summary>
+      <label>Subject</label><input type="text" id="sqSubject">
+      <label>Message</label><textarea id="sqBody" style="width:100%;min-height:150px;border:1px solid var(--rule);border-radius:6px;padding:9px;font-size:12.5px;font-family:inherit;"></textarea>
+    </details>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <button class="add-btn" onclick="prefillSendQuote()">Prefill from this job</button>
+      <button class="add-btn" style="font-weight:700;" onclick="sendQuoteEmail()">Send \u2014 PDF attached</button>
+    </div>
+    <div class="status-line" id="sqSt" style="margin-top:6px;"></div>
+  </div>
+
   <div class="save-bar">
     <div class="status-line" id="statusLine">In-chat build. Generate PDF exports the job file — attach it in chat and Claude renders the real branded PDF. Save to Drive files the job (or exports both JSONs if the Drive bridge isn’t connected).</div>
     <button class="reset-form-btn" onclick="resetForm()">New job / clear</button>
@@ -932,9 +948,9 @@ const CREATE_FILE_TOOL = 'mcp__1db9ce6b-d245-4233-b1ff-40ee9a21666d__create_file
 const ENDURE_ENDPOINT = window.ENDURE_ENDPOINT || 'PASTE_WEBAPP_URL_HERE';
 const TEAM_TOKEN = 'endure-decks-2026';
 function hasCowork(){ return !!(window.cowork && window.cowork.callMcpTool); }
-async function hostedPost(payload){
+async function hostedPost(payload, signal){
   payload.token = TEAM_TOKEN;
-  const res = await fetch(ENDURE_ENDPOINT, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(payload)});
+  const res = await fetch(ENDURE_ENDPOINT, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(payload), signal: signal});
   return await res.json();
 }
 async function loadHostedRates(){
@@ -3266,6 +3282,68 @@ function updatePdfGate(){
   btn.style.opacity = S.savedClean ? '' : '.55';
   btn.title = S.savedClean ? '' : 'Save to Drive first — the save files the job folder AND logs the quote; then the PDF unlocks.';
 }
+function copyAcceptLink(){
+  if(!S.acceptToken){ notify('Save to Drive first — the accept link is minted on save.'); return; }
+  const url = location.origin + '/q/' + S.acceptToken;
+  (navigator.clipboard && navigator.clipboard.writeText) ? navigator.clipboard.writeText(url).then(function(){ notify('Accept link copied: ' + url); }, function(){ prompt('Copy the accept link:', url); })
+    : prompt('Copy the accept link:', url);
+}
+async function toggleAcceptLinks(){
+  try{
+    const cur = await hostedPost({action:'accept_links_get'});
+    const next = !(cur && cur.enabled);
+    const r = await hostedPost({action:'accept_links_set', enabled: next});
+    if(r && r.ok) notify('Online accept links are now ' + (r.enabled ? 'ON — saved fixed quotes accept at their /q link.' : 'OFF — accept pages show a friendly \u201cnot available\u201d message.'));
+    else notify('Could not change the setting: ' + ((r && r.error) || 'unknown error'));
+  }catch(e){ notify('Could not change the setting: ' + e.message); }
+}
+async function prefillSendQuote(){
+  const d = buildJobData();
+  const client = d.client_name || 'there';
+  const first = client.split(' ')[0];
+  const kind = S.mode === 'range' ? 'proposal' : 'quote';
+  document.getElementById('sqSubject').value = 'Your deck ' + kind + ' \u2014 Endure Decks';
+  let acceptLine = '';
+  if(S.mode === 'fixed' && S.acceptToken){
+    try{
+      const r = await hostedPost({action:'accept_links_get'});
+      if(r && r.enabled) acceptLine = 'When you\u2019re ready to go ahead, you can review and accept online here:\n' + location.origin + '/q/' + S.acceptToken + '\n\n';
+    }catch(e){}
+  }
+  document.getElementById('sqBody').value = 'Hi ' + first + ',\n\n'
+    + (S.mode === 'range'
+      ? 'Attached is your proposal \u2014 a priced range and the options we discussed, with the full scope in the document.\n\n'
+      : 'Attached is your fixed-price quote \u2014 the full breakdown, scope and payment schedule are in the document.\n\n')
+    + acceptLine
+    + 'Any questions, just reply to this email.\n\nMatt\nEndure Decks \u2014 built for the long horizon';
+  document.getElementById('sqDetails').open = true;
+  const st = document.getElementById('sqSt'); st.className='status-line'; st.textContent='Prefilled \u2014 tweak the words, then Send.';
+}
+async function sendQuoteEmail(){
+  const st = document.getElementById('sqSt');
+  if(pdfGateActive() && !S.savedClean){
+    st.className='status-line'; st.textContent='Save to Drive first \u2014 sending uses the saved job, and saving is what logs it.'; return;
+  }
+  const to = document.getElementById('sqTo').value.trim();
+  if(!to || to.indexOf('@') < 0){ st.className='status-line'; st.textContent='Enter the client\u2019s email address.'; return; }
+  if(!document.getElementById('sqBody').value) await prefillSendQuote();
+  st.className='status-line'; st.textContent='Sending\u2026 (renders the PDF then emails it \u2014 can take up to a minute)';
+  const ctl = new AbortController();
+  const timer = setTimeout(function(){ ctl.abort(); }, 90000);
+  try{
+    const resp = await hostedPost({action:'send_quote', to: to,
+      subject: document.getElementById('sqSubject').value,
+      body: document.getElementById('sqBody').value,
+      job_data: buildJobData()}, ctl.signal);
+    if(resp && resp.ok){ st.className='status-line ok'; st.textContent='Sent from ' + (resp.from || 'Matt\u2019s address') + ' with the PDF attached.'; return; }
+    st.className='status-line'; st.textContent = (resp && resp.error) || 'Send failed \u2014 Generate PDF and send it from Gmail as the fallback.';
+  }catch(e){
+    st.className='status-line';
+    st.textContent = (e && e.name === 'AbortError')
+      ? 'Timed out after 90s \u2014 the server never answered. Generate PDF and send it yourself as the fallback.'
+      : 'Send failed (' + ((e && e.message) || e) + ') \u2014 Generate PDF and send it yourself as the fallback.';
+  }finally{ clearTimeout(timer); }
+}
 async function generatePdf(){
   const statusEl = document.getElementById('statusLine');
   const btn = document.getElementById('pdfBtn');
@@ -3774,8 +3852,10 @@ async function saveJob(){
       if(!resp || !resp.ok) throw new Error((resp&&resp.error)||'Endpoint save failed.');
       statusEl.className='status-line ok';
       S.savedClean = true; updatePdfGate();
+      S.acceptToken = resp.accept_token || null;
       statusEl.innerHTML = 'Saved. Job folder: <a class="folder-link" href="'+(resp.folderUrl||'#')+'" target="_blank">'+esc(folderName)+'</a>'
         +(resp.logged?' · logged to the Quote Log ✓':' · <span style="color:var(--red);">Quote Log append failed — add the row by hand</span>')
+        +((S.mode==='fixed' && S.acceptToken)?' · <button class="reset-btn" onclick="copyAcceptLink()">🔗 Copy accept link</button>':'')
         +' — now ask Claude to generate the '+(S.mode==='range'?'proposal':'quote')+' for '+esc(clientName)+'.';
       btn.disabled=false;
       return;

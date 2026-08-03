@@ -8,6 +8,8 @@ Run local:  uvicorn server:app --reload
 Deploy:     Dockerfile (Railway / Render / Fly) → quote.enduredecks.com.au
 """
 import base64
+import hashlib
+import hmac
 import io
 import json
 import os
@@ -18,7 +20,7 @@ import tempfile
 from email.message import EmailMessage
 
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts"))
@@ -108,6 +110,12 @@ async def endure_post(request: Request):
             return JSONResponse(img_lib_put(body))
         if action == "send_ballpark":
             return JSONResponse(send_ballpark(body))
+        if action == "send_quote":
+            return JSONResponse(send_quote(body))
+        if action == "accept_links_get":
+            return JSONResponse({"ok": True, "enabled": accept_links_enabled()})
+        if action == "accept_links_set":
+            return JSONResponse(accept_links_set(body))
     except Exception as e:  # noqa: BLE001
         return bad(e)
     return bad("unknown action")
@@ -224,7 +232,8 @@ def save_job(body):
         logged = True
     except Exception:  # noqa: BLE001
         pass
-    return {"ok": True, "folderUrl": folder.get("webViewLink"), "folderId": folder["id"], "logged": logged}
+    return {"ok": True, "folderUrl": folder.get("webViewLink"), "folderId": folder["id"], "logged": logged,
+            "accept_token": accept_token_for(folder["id"])}
 
 
 # ── render (the real renderer — same code path as the skill) ────────────────
@@ -605,6 +614,299 @@ def img_lib_put(body):
     return {"ok": True, "image": {"id": made["id"], "name": made["name"]}}
 
 
+# ── online quote acceptance (/q/<token>, beta — toggled from the builder) ───
+def _accept_key():
+    try:
+        pk = json.loads(os.environ.get("GOOGLE_SERVICE_ACCOUNT", ""))["private_key"]
+    except Exception:  # noqa: BLE001
+        return None
+    return hashlib.sha256(("accept-links:" + pk).encode()).digest()
+
+
+def accept_token_for(folder_id):
+    key = _accept_key()
+    if not key or not folder_id:
+        return None
+    sig = hmac.new(key, folder_id.encode(), hashlib.sha256).hexdigest()[:20]
+    return f"{folder_id}~{sig}"
+
+
+def _accept_folder_id(token):
+    if "~" not in (token or ""):
+        return None
+    fid, sig = token.rsplit("~", 1)
+    key = _accept_key()
+    if not key:
+        return None
+    good = hmac.new(key, fid.encode(), hashlib.sha256).hexdigest()[:20]
+    return fid if hmac.compare_digest(sig, good) else None
+
+
+def _find_in_folder(drive, folder_id, name):
+    safe = json.dumps(name)[1:-1]
+    res = drive.files().list(q=f"'{folder_id}' in parents and name = '{safe}' and trashed = false",
+                             fields="files(id)", supportsAllDrives=True,
+                             includeItemsFromAllDrives=True, corpora="allDrives").execute().get("files", [])
+    return res[0]["id"] if res else None
+
+
+def accept_links_enabled():
+    try:
+        drive = build("drive", "v3", credentials=_creds(), cache_discovery=False)
+        fid = _find_in_folder(drive, JOBS, "_Accept Links.json")
+        if not fid:
+            return False
+        return bool(json.loads(drive.files().get_media(fileId=fid).execute()).get("enabled"))
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def accept_links_set(body):
+    drive = build("drive", "v3", credentials=_creds(), cache_discovery=False)
+    enabled = bool(body.get("enabled"))
+    media = MediaIoBaseUpload(io.BytesIO(json.dumps({"enabled": enabled}).encode()),
+                              mimetype="application/json")
+    _upsert_file(drive, JOBS, "_Accept Links.json", media)
+    return {"ok": True, "enabled": enabled}
+
+
+def _read_job_folder(token):
+    """token → (drive, folder_id, job_data, acceptance|None). Raises on bad token."""
+    fid = _accept_folder_id(token)
+    if not fid:
+        raise ValueError("bad link")
+    drive = build("drive", "v3", credentials=_creds(), cache_discovery=False)
+    jd_id = _find_in_folder(drive, fid, "job-data.json")
+    if not jd_id:
+        raise ValueError("quote not found")
+    jd = json.loads(drive.files().get_media(fileId=jd_id).execute())
+    acc = None
+    acc_id = _find_in_folder(drive, fid, "acceptance.json")
+    if acc_id:
+        try:
+            acc = json.loads(drive.files().get_media(fileId=acc_id).execute())
+        except Exception:  # noqa: BLE001
+            acc = None
+    return drive, fid, jd, acc
+
+
+_ACCEPT_CSS = """
+:root{--cream:#F7F1E4;--ink:#1A1815;--grey:#6e6e6e;--rule:#e3dccf;--mdeep:#B7872F;}
+*{box-sizing:border-box;}body{margin:0;background:var(--cream);color:var(--ink);
+font-family:'Segoe UI',Arial,sans-serif;font-size:14px;}
+.top{background:var(--ink);color:#F7F1E4;display:flex;align-items:center;gap:12px;padding:14px 22px;}
+.top .badge{border:1px solid var(--mdeep);color:var(--mdeep);padding:4px 10px;font-size:11px;font-weight:700;letter-spacing:.14em;}
+.wrap{max-width:640px;margin:0 auto;padding:26px 18px 70px;}
+.card{background:#fffdf8;border:1px solid var(--rule);border-radius:10px;padding:26px 28px;margin-bottom:16px;}
+h1{font-family:Georgia,serif;font-size:26px;margin:0 0 6px;}
+.eyebrow{font-size:11px;letter-spacing:.18em;color:var(--mdeep);text-transform:uppercase;font-weight:700;}
+.total{font-family:Georgia,serif;font-size:38px;margin:10px 0 2px;}
+.sub{color:var(--grey);font-size:12.5px;}
+.btn{display:inline-block;border:none;border-radius:6px;padding:12px 20px;font-size:14px;font-weight:700;
+cursor:pointer;font-family:inherit;text-decoration:none;}
+.btn.primary{background:var(--mdeep);color:#fff;}
+.btn.dark{background:var(--ink);color:#fff;}
+label{display:block;font-weight:600;font-size:12px;margin:12px 0 4px;}
+input[type=text],input[type=email]{width:100%;padding:10px;border:1px solid var(--rule);border-radius:6px;font-size:14px;font-family:inherit;}
+.chk{display:flex;gap:8px;align-items:flex-start;margin:14px 0;font-size:12.5px;color:var(--ink);}
+.status{font-size:13px;margin-top:10px;min-height:18px;color:var(--grey);}
+.status.ok{color:#2f8e4e;font-weight:700;}
+.done{background:#eaf6ee;border:1px solid #bfe3cb;border-radius:8px;padding:16px 18px;font-size:14px;}
+.fine{font-size:11px;color:var(--grey);margin-top:14px;line-height:1.6;}
+"""
+
+
+def _accept_shell(inner):
+    return ("<!doctype html><html><head><meta charset='utf-8'>"
+            "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+            "<meta name='robots' content='noindex,nofollow'>"
+            "<title>Endure Decks — Your quote</title><style>" + _ACCEPT_CSS + "</style></head><body>"
+            "<div class='top'><span class='badge'>ENDURE DECKS</span>"
+            "<span style='font-family:Georgia,serif;font-size:17px;'>Built for the long horizon</span></div>"
+            "<div class='wrap'>" + inner + "</div></body></html>")
+
+
+def _fmt_inc(v):
+    try:
+        return "${:,.0f}".format(float(v))
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def accept_page(token):
+    if not accept_links_enabled():
+        return _accept_shell("<div class='card'><h1>Online acceptance isn't available right now</h1>"
+                             "<p class='sub'>Reply to the email your quote came with and we'll take it from there.</p></div>")
+    try:
+        drive, fid, jd, acc = _read_job_folder(token)
+    except Exception:  # noqa: BLE001
+        return _accept_shell("<div class='card'><h1>This link isn't valid</h1>"
+                             "<p class='sub'>Check the link in your email, or reply to it and we'll resend.</p></div>")
+    client = jd.get("client_name") or "your project"
+    pdf_btn = f"<a class='btn dark' href='/q/{token}/pdf' target='_blank'>View the full quote (PDF)</a>"
+    if jd.get("mode") != "fixed":
+        inner = (f"<div class='card'><div class='eyebrow'>Proposal</div><h1>Proposal for {client}</h1>"
+                 "<p class='sub'>This document presents a priced range and the options for your project. "
+                 "The next step is agreeing the option and scope together — reply to the email this came with "
+                 "and we'll take it from there.</p><div style='margin-top:16px;'>" + pdf_btn + "</div></div>")
+        return _accept_shell(inner)
+    total = _fmt_inc((jd.get("fixed") or {}).get("total_inc_gst"))
+    if acc:
+        inner = (f"<div class='card'><div class='eyebrow'>Quote</div><h1>Quote for {client}</h1>"
+                 f"<div class='total'>{total}</div><div class='sub'>inc GST</div>"
+                 f"<div class='done' style='margin-top:18px;'><strong>Accepted</strong> by {acc.get('name','')} "
+                 f"on {str(acc.get('ts',''))[:10]}. We'll be in touch about the deposit and start date — "
+                 "nothing more to do here.</div>"
+                 "<div style='margin-top:16px;'>" + pdf_btn + "</div></div>")
+        return _accept_shell(inner)
+    form = (
+        "<label>Your full name</label><input type='text' id='accName' placeholder='Full name'>"
+        "<label>Your email</label><input type='email' id='accEmail' placeholder='you@email.com'>"
+        "<div class='chk'><input type='checkbox' id='accChk' style='margin-top:2px;'>"
+        "<span>I accept this quote and the terms set out in the quote document.</span></div>"
+        "<button class='btn primary' id='accBtn'>Accept this quote</button>"
+        "<div class='status' id='accSt'></div>"
+        "<div class='fine'>Accepting records your name, the date and time. It doesn't take any payment — "
+        "we'll confirm the deposit and start date with you by email. Questions first? Just reply to the "
+        "email this quote came with.</div>")
+    js = """<script>
+document.getElementById('accBtn').onclick = async function(){
+  var st = document.getElementById('accSt');
+  var name = document.getElementById('accName').value.trim();
+  var email = document.getElementById('accEmail').value.trim();
+  if(!name){ st.textContent='Please enter your full name.'; return; }
+  if(!document.getElementById('accChk').checked){ st.textContent='Please tick the acceptance box.'; return; }
+  st.className='status'; st.textContent='Recording your acceptance\u2026';
+  this.disabled = true;
+  try{
+    var res = await fetch(location.pathname + '/accept', {method:'POST',
+      headers:{'Content-Type':'application/json'}, body: JSON.stringify({name:name, email:email})});
+    var j = await res.json();
+    if(j && j.ok){ st.className='status ok';
+      st.textContent='Accepted \u2014 thank you! A confirmation email is on its way.';
+      setTimeout(function(){ location.reload(); }, 1800); return; }
+    st.textContent = (j && j.error) || 'Something went wrong \u2014 reply to the email instead.';
+    this.disabled = false;
+  }catch(e){ st.textContent='Something went wrong \u2014 reply to the email instead.'; this.disabled = false; }
+};
+</script>"""
+    inner = (f"<div class='card'><div class='eyebrow'>Quote</div><h1>Quote for {client}</h1>"
+             f"<div class='total'>{total}</div><div class='sub'>inc GST &middot; full breakdown in the document</div>"
+             "<div style='margin:16px 0 6px;'>" + pdf_btn + "</div></div>"
+             "<div class='card'><div class='eyebrow'>Ready to go ahead?</div>" + form + "</div>" + js)
+    return _accept_shell(inner)
+
+
+def _log_mark_accepted(client_name):
+    drive = build("drive", "v3", credentials=_creds(), cache_discovery=False)
+    sheets = build("sheets", "v4", credentials=_creds(), cache_discovery=False)
+    sid = _quote_log_id(drive, sheets)
+    vals = sheets.spreadsheets().values()
+    clients = vals.get(spreadsheetId=sid, range="Log!B:B").execute().get("values", [])
+    for i, r in enumerate(clients):
+        if r and r[0] == client_name and i > 0:
+            vals.update(spreadsheetId=sid, range=f"Log!M{i + 1}", valueInputOption="USER_ENTERED",
+                        body={"values": [["Accepted"]]}).execute()
+            return True
+    return False
+
+
+def record_acceptance(token, body, ip, ua):
+    if not accept_links_enabled():
+        return {"ok": False, "error": "Online acceptance isn't available right now — reply to the email instead."}
+    try:
+        drive, fid, jd, acc = _read_job_folder(token)
+    except Exception:  # noqa: BLE001
+        return {"ok": False, "error": "This link isn't valid."}
+    if jd.get("mode") != "fixed":
+        return {"ok": False, "error": "This document is a proposal — reply to the email to take the next step."}
+    if acc:
+        return {"ok": True, "already": True}
+    from datetime import datetime, timezone
+    name = (body.get("name") or "").strip()
+    email = (body.get("email") or "").strip()
+    if not name:
+        return {"ok": False, "error": "name required"}
+    record = {"name": name, "email": email, "ts": datetime.now(timezone.utc).isoformat(),
+              "ip": ip or "", "user_agent": (ua or "")[:300],
+              "total_inc_gst": (jd.get("fixed") or {}).get("total_inc_gst")}
+    media = MediaIoBaseUpload(io.BytesIO(json.dumps(record, indent=2).encode()), mimetype="application/json")
+    _upsert_file(drive, fid, "acceptance.json", media)
+    try:  # best-effort — acceptance stands even if the log write hiccups
+        _log_mark_accepted(jd.get("client_name") or "")
+    except Exception:  # noqa: BLE001
+        pass
+    try:  # confirmation emails, best-effort
+        client = jd.get("client_name") or "Client"
+        total = _fmt_inc((jd.get("fixed") or {}).get("total_inc_gst"))
+        msg = EmailMessage()
+        msg["From"] = f"{SEND_NAME} <{SEND_USER}>"
+        msg["To"] = email or SEND_USER
+        bcc = [x for x in [SEND_BCC, SEND_USER if email else ""] if x]
+        if bcc:
+            msg["Bcc"] = ", ".join(bcc)
+        msg["Subject"] = f"Quote accepted — {client}"
+        msg.set_content(
+            f"Hi {name.split(' ')[0]},\n\n"
+            f"Thanks — your quote ({total} inc GST) is accepted as of today.\n\n"
+            "Next step: we'll be in touch shortly to confirm the deposit and lock in your start date. "
+            "Nothing more you need to do right now.\n\n"
+            f"{SEND_NAME}\nEndure Decks — built for the long horizon")
+        if SEND_USER:
+            _send_message(msg)
+    except Exception:  # noqa: BLE001
+        pass
+    return {"ok": True}
+
+
+def accept_pdf(token):
+    drive, fid, jd, acc = _read_job_folder(token)
+    client = (jd.get("client_name") or "Client").strip()
+    slug = re.sub(r"[^A-Za-z0-9]+", "_", client).strip("_") or "Client"
+    doc_name = f"{slug}_{'Proposal' if jd.get('mode') == 'range' else 'Quote'}.pdf"
+    with tempfile.TemporaryDirectory() as td:
+        out_pdf = os.path.join(td, doc_name)
+        render_proposal.render(jd, out_pdf)
+        pdf_bytes = open(out_pdf, "rb").read()
+    return Response(pdf_bytes, media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="{doc_name}"'})
+
+
+# ── send the quote/proposal from the builder (same path as the ballpark) ─────
+def send_quote(body):
+    if not SEND_USER:
+        return {"ok": False, "error": "Email sending isn't configured — add SEND_EMAIL_USER in Railway."}
+    to = (body.get("to") or "").strip()
+    if not to or "@" not in to:
+        return {"ok": False, "error": "recipient email required"}
+    jd = body.get("job_data")
+    if not jd:
+        return {"ok": False, "error": "job_data required"}
+    client = (jd.get("client_name") or "Client").strip()
+    kind = "Proposal" if jd.get("mode") == "range" else "Quote"
+    subject = (body.get("subject") or f"Your {kind.lower()} from Endure Decks").strip()
+    text = body.get("body") or ""
+    msg = EmailMessage()
+    msg["From"] = f"{SEND_NAME} <{SEND_USER}>"
+    msg["To"] = to
+    msg["Subject"] = subject
+    if SEND_BCC:
+        msg["Bcc"] = SEND_BCC
+    msg.set_content(text)
+    slug = re.sub(r"[^A-Za-z0-9]+", "_", client).strip("_") or "Client"
+    pdf_name = f"{slug}_{kind}.pdf"
+    with tempfile.TemporaryDirectory() as td:
+        out_pdf = os.path.join(td, pdf_name)
+        render_proposal.render(jd, out_pdf)
+        msg.add_attachment(open(out_pdf, "rb").read(), maintype="application",
+                           subtype="pdf", filename=pdf_name)
+    try:
+        via = _send_message(msg)
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": f"{e}. Fallback: Generate PDF and send it from Gmail yourself."}
+    return {"ok": True, "from": SEND_USER, "attached": True, "via": via}
+
+
 # ── render internal (PM-only Job Budget — never for clients) ────────────────
 def _internal_pdf_bytes(internal, job_data):
     client = (internal.get("client_name") or "Client").strip()
@@ -628,6 +930,32 @@ def render_internal_pdf(body):
 
 
 # ── static: the builder page ────────────────────────────────────────────────
+@app.get("/q/{token}")
+async def quote_accept_page(token: str):
+    return HTMLResponse(accept_page(token))
+
+
+@app.get("/q/{token}/pdf")
+async def quote_accept_pdf(token: str):
+    if not accept_links_enabled():
+        return HTMLResponse(accept_page(token))
+    try:
+        return accept_pdf(token)
+    except Exception:  # noqa: BLE001
+        return HTMLResponse(accept_page(token))
+
+
+@app.post("/q/{token}/accept")
+async def quote_accept_post(token: str, request: Request):
+    try:
+        body = json.loads((await request.body()) or b"{}")
+    except Exception:  # noqa: BLE001
+        body = {}
+    ip = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip() or \
+         (request.client.host if request.client else "")
+    return JSONResponse(record_acceptance(token, body, ip, request.headers.get("user-agent")))
+
+
 @app.get("/ballpark")
 async def ballpark():
     return FileResponse(os.path.join(os.path.dirname(os.path.abspath(__file__)), "public", "ballpark.html"))
