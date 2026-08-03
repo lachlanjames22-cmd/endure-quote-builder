@@ -770,6 +770,9 @@ def page_next_step_ballpark(d, n, status_label):
         for num, h, b in ASSESSMENT_AGENDA)
     stripe_html = (f'<div style="margin-top:2.5mm;"><span style="display:inline-block;background:var(--mustard-deep);color:#fff;'
                    f'padding:2.5mm 6mm;font-weight:700;font-size:10pt;">Book &amp; pay online &rarr; {stripe}</span></div>') if stripe else ''
+    booking = bp.get('booking_url', '')
+    booking_html = (f'<div style="margin-top:2.5mm;"><span style="display:inline-block;background:var(--ink);color:#fff;'
+                    f'padding:2.5mm 6mm;font-weight:700;font-size:10pt;">Book online in under a minute &rarr; {booking}</span></div>') if booking else ''
     return f'''<div class="page">{head(f"Next Step &middot; {n:02d}")}<div class="pbody">
   <div class="eyebrow">Next step</div>
   {title_html(d, "approval", 'The Site <span class="mustard">Assessment.</span>')}
@@ -783,6 +786,7 @@ def page_next_step_ballpark(d, n, status_label):
     <strong>Book your Site Assessment:</strong> reply to this email{', call ' + phone if phone else ''}{', or write to ' + email if email else ''}.
   </div></div>
   {stripe_html}
+  {booking_html}
   <p style="font-size:8pt;color:var(--grey);margin-top:2mm;">No obligation either way &mdash; this range doesn&rsquo;t expire and nobody will chase you. General guidance only &mdash; final pricing is set at the Site Assessment.</p>
 {foot(n)}</div></div>'''
 
