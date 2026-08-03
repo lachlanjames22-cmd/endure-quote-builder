@@ -100,6 +100,23 @@ internal-costing.json, site photos). Deploys to **quote.enduredecks.com.au**.
   per client (preserving hand-set Status) — re-saving never duplicates.
 - Drive-backed image library: "_Image Library" folder in Incoming Jobs,
   actions img_lib_list/get/put, overlay picker on hero/recipe/concept images.
+- Online accept links (BETA, 2026-08-02): every Save to Drive mints an accept
+  token (`accept_token` in the save response; HMAC of the folder id keyed off
+  the SA private key — no new env vars, no database, Drive stays the store).
+  Public routes `/q/<token>` (branded accept page; fixed quotes get an accept
+  form, proposals get view-only), `/q/<token>/pdf` (fresh render),
+  `POST /q/<token>/accept` (writes acceptance.json to the job folder, flips
+  Quote Log Status→Accepted, sends confirmation email best-effort). Feature is
+  OFF until toggled: "_Accept Links.json" in Incoming Jobs, flipped from the
+  builder's Contracts & templates menu (actions accept_links_get/set) — while
+  testing, Lachy turns it on/off there. Click-accept legality is pending the
+  lawyer's blessing (asked alongside the contract-terms review). Stripe
+  deposit-at-accept is the agreed part 2b, not built.
+- Send to client from the builder (2026-08-02): `action:'send_quote'` — same
+  Gmail path as the ballpark; card above the save bar, gated like Generate
+  PDF (must save first), renders the quote/proposal PDF and emails it from
+  Matt's address, BCC shared inbox; prefill includes the accept link when
+  links are ON and mode is fixed.
 
 ## Deploy state (LIVE as of 2026-07-29)
 1. ✅ GitHub: `lachlanjames22-cmd/endure-quote-builder`, default flow is
