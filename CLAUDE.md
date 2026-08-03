@@ -112,6 +112,20 @@ internal-costing.json, site photos). Deploys to **quote.enduredecks.com.au**.
   testing, Lachy turns it on/off there. Click-accept legality is pending the
   lawyer's blessing (asked alongside the contract-terms review). Stripe
   deposit-at-accept is the agreed part 2b, not built.
+- Site Assessment booking (BUILT 2026-08-02, 🚧 NOT LIVE — Lachy's call, revisit
+  after Bali): public /book page (branded, banner'd) + POST /book/submit.
+  Personal prefill links are signed tokens (name/email/lane/range in the URL,
+  HMAC'd — no storage until submit). Submit files a JSON record to
+  "_Assessment Bookings" in Incoming Jobs, flips the Ballparks-tab Status to
+  "Assessment booked" (match by email), and fires three emails: client
+  confirmation, Matt's action email, accounts invoice request (ACCOUNTS_EMAIL
+  env, noted in Matt's email when unset). `BOOKING_LIVE = False` in server.py
+  is the master switch — while False, NO client-facing surface references
+  /book (ballpark emails and the PDF booking strip stay clean); flip it to
+  start injecting the personal link into sent ballparks + the PDF's "book
+  online" strip. Roadmap owner-approved next steps: online acceptance
+  hardening, soft client portal for sales (questions/design/link sharing),
+  ops portal much later.
 - Send to client from the builder (2026-08-02): `action:'send_quote'` — same
   Gmail path as the ballpark; card above the save bar, gated like Generate
   PDF (must save first), renders the quote/proposal PDF and emails it from

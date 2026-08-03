@@ -412,6 +412,201 @@ def log_quote(body, folder_url):
                     insertDataOption="INSERT_ROWS", body={"values": [row]}).execute()
 
 
+# ── Site Assessment booking (/book, public — the ballpark's conversion) ─────
+BASE_URL = os.environ.get("PUBLIC_BASE_URL", "https://quote.enduredecks.com.au")
+ACCOUNTS_EMAIL = os.environ.get("ACCOUNTS_EMAIL", "")
+# 🚧 UNDER CONSTRUCTION by Lachy's call (2026-08-02): flip to True to start
+# putting the personal booking link into client ballpark emails + the PDF.
+# While False, /book exists for internal testing only — no client ever sees it.
+BOOKING_LIVE = False
+
+
+def booking_token(lead):
+    """Signed prefill payload for a personal /book link. No storage — the
+    token IS the record until the client submits."""
+    key = _accept_key()
+    if not key:
+        return None
+    payload = base64.urlsafe_b64encode(json.dumps(
+        {k: lead.get(k) for k in ("n", "e", "l", "lo", "hi") if lead.get(k) is not None}
+    ).encode()).decode().rstrip("=")
+    sig = hmac.new(key, payload.encode(), hashlib.sha256).hexdigest()[:16]
+    return f"{payload}.{sig}"
+
+
+def _booking_lead(token):
+    try:
+        payload, sig = (token or "").rsplit(".", 1)
+        key = _accept_key()
+        good = hmac.new(key, payload.encode(), hashlib.sha256).hexdigest()[:16]
+        if not hmac.compare_digest(sig, good):
+            return {}
+        pad = payload + "=" * (-len(payload) % 4)
+        return json.loads(base64.urlsafe_b64decode(pad))
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def booking_page(token):
+    lead = _booking_lead(token)
+    name = _esc_h(lead.get("n") or "")
+    email = _esc_h(lead.get("e") or "")
+    range_line = ""
+    if lead.get("lo") and lead.get("hi"):
+        range_line = (f"<p class='sub'>Your ballpark: {_fmt_inc(lead['lo'])} &ndash; {_fmt_inc(lead['hi'])} inc GST "
+                      "&mdash; the assessment turns that into a fixed price.</p>")
+    form = (
+        f"<label>Your full name</label><input type='text' id='bkName' value='{name}' placeholder='Full name'>"
+        f"<label>Email</label><input type='email' id='bkEmail' value='{email}' placeholder='you@email.com'>"
+        "<label>Phone</label><input type='text' id='bkPhone' placeholder='04…'>"
+        "<label>Property address or suburb</label><input type='text' id='bkAddr' placeholder='12 Example St, Karrinyup'>"
+        "<label>When suits you?</label><input type='text' id='bkWhen' placeholder='e.g. weekday mornings, or after 4pm'>"
+        "<label>Anything we should know? (optional)</label><input type='text' id='bkNotes' placeholder='raised deck, tricky access, dog in the yard…'>"
+        "<button class='btn primary' id='bkBtn' style='margin-top:14px;'>Book my Site Assessment</button>"
+        "<div class='status' id='bkSt'></div>"
+        "<div class='fine'>Booking sends your request straight to Matt, who'll confirm the exact time with you. "
+        "The $250 assessment fee is invoiced separately and credited in full off your build.</div>")
+    js = """<script>
+document.getElementById('bkBtn').onclick = async function(){
+  var st = document.getElementById('bkSt');
+  var f = {};
+  ['Name','Email','Phone','Addr','When','Notes'].forEach(function(k){ f[k.toLowerCase()] = document.getElementById('bk'+k).value.trim(); });
+  if(!f.name){ st.textContent='Please enter your name.'; return; }
+  if(!f.email || f.email.indexOf('@')<0){ st.textContent='Please enter your email so we can confirm the time.'; return; }
+  st.className='status'; st.textContent='Booking\u2026';
+  this.disabled = true;
+  try{
+    var res = await fetch('/book/submit', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({name:f.name, email:f.email, phone:f.phone, address:f.addr, preferred:f.when, notes:f.notes, t: location.search.indexOf('t=')>-1 ? new URLSearchParams(location.search).get('t') : ''})});
+    var j = await res.json();
+    if(j && j.ok){ st.className='status ok';
+      st.textContent='Booked \u2014 Matt will be in touch to confirm the exact time. A confirmation email is on its way.'; return; }
+    st.textContent = (j && j.error) || 'Something went wrong \u2014 reply to the email your ballpark came with instead.';
+    this.disabled = false;
+  }catch(e){ st.textContent='Something went wrong \u2014 reply to the email your ballpark came with instead.'; this.disabled = false; }
+};
+</script>"""
+    agenda = "".join(
+        f"<div style='display:flex;gap:8px;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--rule);font-size:12.5px;'>"
+        f"<span style='font-family:Georgia,serif;font-weight:700;color:var(--mdeep);min-width:22px;'>{num}</span>"
+        f"<div><strong>{h}</strong> <span style='color:var(--grey);'>&mdash; {b}</span></div></div>"
+        for num, h, b in render_proposal.ASSESSMENT_AGENDA[:5])
+    banner = ("" if BOOKING_LIVE else
+              "<div style='background:repeating-linear-gradient(45deg,#B7872F,#B7872F 14px,#1A1815 14px,#1A1815 28px);"
+              "padding:2px;border-radius:6px;margin-bottom:14px;'>"
+              "<div style='background:#FFF2B3;color:#1A1815;text-align:center;padding:8px 12px;font-weight:700;"
+              "font-size:12px;letter-spacing:.04em;border-radius:4px;'>"
+              "🚧 UNDER CONSTRUCTION — internal preview. Bookings here are test data; clients don't have this link yet.</div></div>")
+    inner = (banner +
+        "<div class='card'><div class='eyebrow'>The next step</div><h1>Book your Site Assessment</h1>"
+        "<p class='sub'>45 minutes on site &mdash; $250, credited in full off your build. "
+        "Most simple decks walk away with their fixed price on the spot.</p>" + range_line +
+        "<div class='sect'>What we cover (first five of ten)</div>" + agenda +
+        "<p class='fine'>The full ten-point agenda is in your ballpark document.</p></div>"
+        "<div class='card'><div class='eyebrow'>Pick your times</div>" + form + "</div>" + js)
+    return _accept_shell(inner)
+
+
+def record_booking(body):
+    name = (body.get("name") or "").strip()
+    email = (body.get("email") or "").strip()
+    if not name or "@" not in email:
+        return {"ok": False, "error": "name and a valid email are required"}
+    from datetime import datetime, timezone
+    lead = _booking_lead(body.get("t") or "")
+    rec = {"name": name, "email": email, "phone": (body.get("phone") or "").strip(),
+           "address": (body.get("address") or "").strip(),
+           "preferred": (body.get("preferred") or "").strip(),
+           "notes": (body.get("notes") or "").strip(),
+           "lane": lead.get("l") or "", "range_lo": lead.get("lo"), "range_hi": lead.get("hi"),
+           "ts": datetime.now(timezone.utc).isoformat(), "status": "requested"}
+    drive = build("drive", "v3", credentials=_creds(), cache_discovery=False)
+    folder = _named_folder(drive, "_Assessment Bookings")
+    fname = f"{rec['ts'][:10]} {name}.json"
+    media = MediaIoBaseUpload(io.BytesIO(json.dumps(rec, indent=2).encode()), mimetype="application/json")
+    _upsert_file(drive, folder, fname, media)
+    try:  # flip the Ballparks-tab status if this lead is in it — best-effort
+        _ballparks_mark_booked(email)
+    except Exception:  # noqa: BLE001
+        pass
+    try:  # the admin-killer: three emails from one booking — best-effort
+        _booking_emails(rec)
+    except Exception:  # noqa: BLE001
+        pass
+    return {"ok": True}
+
+
+def _named_folder(drive, name):
+    safe = json.dumps(name)[1:-1]
+    res = drive.files().list(
+        q=f"'{JOBS}' in parents and name = '{safe}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
+        fields="files(id)", supportsAllDrives=True, includeItemsFromAllDrives=True,
+        corpora="allDrives").execute().get("files", [])
+    if res:
+        return res[0]["id"]
+    made = drive.files().create(body={"name": name, "mimeType": "application/vnd.google-apps.folder",
+                                      "parents": [JOBS]}, fields="id", supportsAllDrives=True).execute()
+    return made["id"]
+
+
+def _ballparks_mark_booked(email):
+    drive = build("drive", "v3", credentials=_creds(), cache_discovery=False)
+    sheets = build("sheets", "v4", credentials=_creds(), cache_discovery=False)
+    sid = _quote_log_id(drive, sheets)
+    vals = sheets.spreadsheets().values()
+    rows = vals.get(spreadsheetId=sid, range="Ballparks!C:C").execute().get("values", [])
+    for i, r in enumerate(rows):
+        if r and r[0].strip().lower() == email.strip().lower() and i > 0:
+            vals.update(spreadsheetId=sid, range=f"Ballparks!G{i + 1}", valueInputOption="USER_ENTERED",
+                        body={"values": [["Assessment booked"]]}).execute()
+            return True
+    return False
+
+
+def _booking_emails(rec):
+    if not SEND_USER:
+        return
+    first = rec["name"].split(" ")[0]
+    details = (f"Name: {rec['name']}\nEmail: {rec['email']}\nPhone: {rec['phone'] or '—'}\n"
+               f"Address: {rec['address'] or '—'}\nPreferred times: {rec['preferred'] or '—'}\n"
+               f"Notes: {rec['notes'] or '—'}\n"
+               + (f"Ballpark shown: {_fmt_inc(rec['range_lo'])}–{_fmt_inc(rec['range_hi'])} inc GST\n" if rec.get('range_lo') else ""))
+    # 1 — client confirmation
+    m = EmailMessage()
+    m["From"] = f"{SEND_NAME} <{SEND_USER}>"
+    m["To"] = rec["email"]
+    if SEND_BCC:
+        m["Bcc"] = SEND_BCC
+    m["Subject"] = "Your Site Assessment — booked"
+    m.set_content(
+        f"Hi {first},\n\nYour Site Assessment request is in — I'll come back to you within one business day "
+        f"to lock in the exact time.\n\nWhat you told us:\n{details}\n"
+        "The $250 assessment fee is invoiced separately and credited in full off your build.\n\n"
+        f"{SEND_NAME}\nEndure Decks — built for the long horizon")
+    _send_message(m)
+    # 2 — Matt's action email
+    m2 = EmailMessage()
+    m2["From"] = f"{SEND_NAME} <{SEND_USER}>"
+    m2["To"] = SEND_USER
+    m2["Subject"] = f"📅 Site Assessment booked — {rec['name']}"
+    m2.set_content(
+        f"New Site Assessment request via the ballpark link.\n\n{details}\n"
+        "Do two things:\n1. Reply to the client and lock the slot.\n"
+        "2. Accounts have been asked to invoice $250 inc GST"
+        + ("." if ACCOUNTS_EMAIL else " — no ACCOUNTS_EMAIL is set, so chase the invoice yourself."))
+    _send_message(m2)
+    # 3 — accounts, if configured
+    if ACCOUNTS_EMAIL:
+        m3 = EmailMessage()
+        m3["From"] = f"{SEND_NAME} <{SEND_USER}>"
+        m3["To"] = ACCOUNTS_EMAIL
+        m3["Subject"] = f"Invoice request — Site Assessment, {rec['name']}"
+        m3.set_content(
+            f"Please invoice for a Site Assessment ($250 inc GST):\n\n{details}\n"
+            "Booked via the ballpark link. The fee is credited off their build if they proceed.")
+        _send_message(m3)
+
+
 # ── ballpark email send (from Matt's address, BCC to the shared inbox) ──────
 def _gmail_send(msg):
     # HTTPS path — the only one that works on hosts that block outbound SMTP
@@ -506,6 +701,19 @@ def send_ballpark(body):
     subject = (body.get("subject") or "Your ballpark from Endure Decks").strip()
     text = body.get("body") or ""
     jd = body.get("job_data")
+    lead = {"n": (jd or {}).get("client_name") or "", "e": to}
+    try:
+        opt = ((jd or {}).get("range", {}).get("options") or [{}])[0]
+        lead["lo"], lead["hi"] = opt.get("price_low_inc_gst"), opt.get("price_high_inc_gst")
+        lead["l"] = ((jd or {}).get("ballpark_next") or {}).get("lane")
+    except Exception:  # noqa: BLE001
+        pass
+    bt = booking_token(lead) if BOOKING_LIVE else None
+    if bt:
+        text = text.rstrip() + ("\n\nPS — you can book your Site Assessment online in under a minute:\n"
+                                f"{BASE_URL}/book?t={bt}\n")
+        if jd is not None:
+            jd.setdefault("ballpark_next", {})["booking_url"] = BASE_URL.replace("https://", "") + "/book"
 
     msg = EmailMessage()
     msg["From"] = f"{SEND_NAME} <{SEND_USER}>"
@@ -1080,6 +1288,20 @@ async def quote_accept_post(token: str, request: Request):
     ip = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip() or \
          (request.client.host if request.client else "")
     return JSONResponse(record_acceptance(token, body, ip, request.headers.get("user-agent")))
+
+
+@app.get("/book")
+async def book_page(request: Request):
+    return HTMLResponse(booking_page(request.query_params.get("t") or ""))
+
+
+@app.post("/book/submit")
+async def book_submit(request: Request):
+    try:
+        body = json.loads((await request.body()) or b"{}")
+    except Exception:  # noqa: BLE001
+        body = {}
+    return JSONResponse(record_booking(body))
 
 
 @app.get("/ballpark")
