@@ -1,36 +1,76 @@
 {
-  "mode": "range", "ballpark": true,
+  "mode": "range",
+  "ballpark": true,
   "client_name": "Sarah Mitchell",
-  "cover_subtitle": "A ballpark for your ~30m² Merbau deck in Karrinyup — so you know where you stand before we measure a thing.",
-  "prepared_for": "Sarah Mitchell", "location": "Karrinyup",
-  "proposal_date": "1 August 2026", "status_label": "Ballpark Estimate",
-  "eyebrow_tag": "Ballpark Estimate · Range Only",
+  "cover_subtitle": "A ballpark for your ~30m\u00b2 Merbau deck in Karrinyup \u2014 so you know where you stand before we measure a thing.",
+  "prepared_for": "Sarah Mitchell",
+  "location": "Karrinyup",
+  "proposal_date": "1 August 2026",
+  "status_label": "Ballpark Estimate",
+  "eyebrow_tag": "Ballpark Estimate \u00b7 Range Only",
   "ballpark_next": {
     "lane": "standard",
-    "consult_fee_ex_gst": 200,
-    "contact": {"phone": "", "email": "matt@enduredecks.com.au"}
+    "contact": {
+      "phone": "",
+      "email": "matt@enduredecks.com.au"
+    },
+    "consult_fee_inc_gst": 250
   },
   "range": {
-    "options": [{
-      "label": "Merbau deck", "image": "merbau.jpg", "size_label": "approx. 30m²",
-      "price_low_inc_gst": 13000, "price_high_inc_gst": 16000,
-      "price_low_ex_gst": 11818, "price_high_ex_gst": 14545,
-      "spec_line": "Supplied & installed to the Endure 20-Year Standard — subframe, boards, oil finish and site clean included.",
-      "eyebrow": "Ballpark Range"
-    }],
+    "options": [
+      {
+        "label": "Merbau deck",
+        "image": "merbau.jpg",
+        "size_label": "approx. 30m\u00b2",
+        "price_low_inc_gst": 13000,
+        "price_high_inc_gst": 16000,
+        "price_low_ex_gst": 11818,
+        "price_high_ex_gst": 14545,
+        "spec_line": "Supplied & installed to the Endure 20-Year Standard \u2014 subframe, boards, oil finish and site clean included.",
+        "eyebrow": "Projects like this typically land"
+      }
+    ],
     "alt_materials": [],
     "scope_items": [
-      {"label": "Full supply & install — subframe, boards, fixings, finish", "value": "Included"},
-      {"label": "Site clean & rubbish removal", "value": "Included"},
-      {"label": "Built to the Endure 20-Year Standard", "value": "Every job"},
-      {"label": "Exact price", "value": "Set at your site consult", "strong": true}
+      {
+        "label": "Full supply & install \u2014 subframe, boards, fixings, finish",
+        "value": "Included"
+      },
+      {
+        "label": "Site clean & rubbish removal",
+        "value": "Included"
+      },
+      {
+        "label": "Built to the Endure 20-Year Standard",
+        "value": "Every job"
+      },
+      {
+        "label": "Exact price",
+        "value": "Set at your site consult",
+        "strong": true
+      }
     ],
-    "preliminary_note": "This is a ballpark, not a quote — it's built from your rough dimensions using the same rates we price every job with, and matches the ranges published at enduredecks.com.au/pricing. Site access, levels, subframe height and final board choice move the number inside this range. One site consult locks it to a fixed price that doesn't change.",
+    "preliminary_note": "This is a ballpark, not a quote \u2014 it's built from your rough dimensions using the same rates we price every job with, and matches the ranges published at enduredecks.com.au/pricing. Site access, levels, subframe height and final board choice move the number inside this range. One site consult locks it to a fixed price that doesn't change.",
     "consult_fee_paid": 0,
     "design_service_tiers": [
-      {"name": "Working Drawings", "description": "Plans + quantities — enough detail to lock scope and return a fixed price.", "price_ex_gst": 800, "credit_consult": true},
-      {"name": "Design Pack", "description": "Plans, 3D renders + moodboard — see it before you build it.", "price_ex_gst": 2200, "credit_consult": false},
-      {"name": "Landscape Concept Design", "description": "Full outdoor concept across the whole site — deck, landscaping and hardscape planned as one.", "price_ex_gst": 3500, "credit_consult": true}
+      {
+        "name": "Working Drawings",
+        "description": "Plans + quantities \u2014 enough detail to lock scope and return a fixed price.",
+        "price_ex_gst": 800,
+        "credit_consult": true
+      },
+      {
+        "name": "Design Pack",
+        "description": "Plans, 3D renders + moodboard \u2014 see it before you build it.",
+        "price_ex_gst": 2200,
+        "credit_consult": false
+      },
+      {
+        "name": "Landscape Concept Design",
+        "description": "Full outdoor concept across the whole site \u2014 deck, landscaping and hardscape planned as one.",
+        "price_ex_gst": 3500,
+        "credit_consult": true
+      }
     ]
   }
 }

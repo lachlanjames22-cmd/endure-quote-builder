@@ -10,11 +10,11 @@
   "eyebrow_tag": "Ballpark Estimate \u00b7 Range Only",
   "ballpark_next": {
     "lane": "complex",
-    "consult_fee_ex_gst": 200,
     "contact": {
       "phone": "",
       "email": "matt@enduredecks.com.au"
-    }
+    },
+    "consult_fee_inc_gst": 250
   },
   "range": {
     "options": [
@@ -27,7 +27,7 @@
         "price_low_ex_gst": 30000,
         "price_high_ex_gst": 37727,
         "spec_line": "Raised composite deck to the Endure 20-Year Standard \u2014 engineered subframe, Trex Transcend boards, site clean included. Pergola priced separately at consult.",
-        "eyebrow": "Ballpark Range"
+        "eyebrow": "Projects like this typically land"
       }
     ],
     "alt_materials": [],

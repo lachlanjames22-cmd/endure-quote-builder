@@ -740,106 +740,76 @@ def page_why_range(d, n, status_label):
   </div>
 {foot(n)}</div></div>'''
 
-CONSULT_CHECKS = [
-    ('01', 'Measure & access', 'Real dimensions, not the ones from memory — plus how materials and crew actually get to the build zone. Access is the silent cost on most quotes.'),
-    ('02', 'Levels & subframe', 'Fall across the site, finished height, what the subframe really needs. This is where two "same size" decks end up thousands apart.'),
-    ('03', 'Water & ventilation', 'Where water goes and how the deck breathes underneath. The two things that decide whether it lasts twenty years or seven.'),
-    ('04', 'Boards in your hand', 'Samples on your site, in your light, against your house. Colours lie in showrooms.'),
-    ('05', 'The honest conversation', 'What we would build, what we would not, and why. If your site suits a cheaper build than you planned, you hear that too.'),
+# The Site Assessment agenda — built from Lachy's own account of how a visit
+# actually runs. The list is the product AND the trust argument — it should
+# leave even a non-buyer knowing how to read any deck quote in Perth.
+ASSESSMENT_AGENDA = [
+    ('01', 'Your vision, first', 'what&rsquo;s this space really for.'),
+    ('02', 'The simplest honest build', 'simple costs you less.'),
+    ('03', 'Where cheap quotes hide', 'it&rsquo;s always the subframe.'),
+    ('04', 'Laser measure &amp; levels', 'no guesses, no &ldquo;variations&rdquo;.'),
+    ('05', 'The 3D scan', 'your quote, drawn from your actual yard.'),
+    ('06', 'The subframe verdict', 'where year fifteen is decided.'),
+    ('07', 'Everything documented', 'what&rsquo;s scoped is what&rsquo;s built.'),
+    ('08', 'Good, better, best', 'real options, straight advice.'),
+    ('09', 'The extras', 'what&rsquo;s worth it now, what can wait.'),
+    ('10', 'Your price', 'most simple decks: quoted on the spot.'),
 ]
 
-def page_consult_value(d, n, status_label):
-    bp = d.get('ballpark_next', {})
-    fee_ex = bp.get('consult_fee_ex_gst', 200)
-    fee_inc = round(fee_ex * 1.1)
-    checks_html = ''.join(
-        f'<div class="std-item"><div class="std-headrow"><span class="std-num">{num}</span>'
-        f'<span class="std-head">{h}</span></div><div class="std-body">{b}</div></div>'
-        for num, h, b in CONSULT_CHECKS)
-    outcomes = [
-        ('A price that doesn&rsquo;t move', 'Not a range, not an estimate — a fixed-price quote built from your actual site. Simple jobs are often priced on the spot; every job has its number within 48 hours.'),
-        ('A build you can picture', 'Board choice settled, levels resolved, timeline mapped. You&rsquo;ll know exactly what you&rsquo;re getting before you commit a dollar to the build.'),
-        ('Your fee back', f'The {fmt_money(fee_inc)} consult fee is credited straight off your build. If you build with us, the consult cost you nothing.'),
-    ]
-    outcomes_html = ''.join(
-        f'<div class="appr-card" style="border-left:3px solid var(--mustard-deep);"><div style="min-width:0;">'
-        f'<div class="nm">{h}</div>'
-        f'<div style="font-size:9pt;color:var(--grey);margin-top:1mm;">{b}</div></div></div>'
-        for h, b in outcomes)
-    return f'''<div class="page">{head(f"{status_label} &middot; {n:02d}")}<div class="pbody">
-  <div class="eyebrow">Where the real value is</div>
-  {title_html(d, "consult", 'The ballpark is a compass. <span class="mustard">The consult is the map.</span>')}
-  <div class="intro-grid">
-    <div>
-      <div class="thread-lab">Why this document stays broad on purpose</div>
-      <div class="intro-letter">
-        <p>We could have printed a precise-looking number here. It would be a guess dressed up
-        as a promise, and you&rsquo;d wear the difference later as variations. The range is
-        honest; the precision comes from standing on your site. That&rsquo;s not a sales step
-        &mdash; it&rsquo;s where the actual work of pricing happens.</p>
-      </div>
-      <div class="thread-lab" style="margin-top:4mm;">What you walk away with</div>
-      <div class="appr-cards" style="grid-template-columns:1fr;gap:2.5mm;margin-top:2mm;">{outcomes_html}</div>
-    </div>
-    <div>
-      <div class="thread-lab">What 45 minutes on site settles</div>
-      <div class="std-list">{checks_html}</div>
-    </div>
-  </div>
-  <div class="accept-block" style="margin-top:4mm;"><div class="accept-text" style="font-size:10pt;">
-    <strong>Not ready yet? That&rsquo;s fine.</strong> This range doesn&rsquo;t expire next week and nobody
-    will chase you. Keep this document, take your time, get other quotes &mdash; and when you want a real
-    number instead of guesses, the consult is the step that gets you one.
-  </div></div>
-{foot(n)}</div></div>'''
-
 def page_next_step_ballpark(d, n, status_label):
-    r = d['range']
     bp = d.get('ballpark_next', {})
-    lane = bp.get('lane', 'standard')            # 'standard' | 'complex'
-    fee_ex = bp.get('consult_fee_ex_gst', 200)
-    fee_inc = round(fee_ex * 1.1)
+    fee_inc = bp.get('consult_fee_inc_gst') or round(bp.get('consult_fee_ex_gst', 227) * 1.1)
     contact = bp.get('contact', {})
     phone = contact.get('phone', '')
     email = contact.get('email', '')
     stripe = bp.get('stripe_url', '')
-    consult_card = f'''<div class="appr-card" style="border-left:3px solid var(--mustard-deep);">
-      <div style="min-width:0;">
-        <div class="nm">Site Consult &amp; Check Measure &mdash; {fmt_money(fee_inc)} inc GST, credited off your build</div>
-        <div style="font-size:9pt;color:var(--grey);margin-top:1mm;">45 minutes on site. We measure, check access and levels, and talk boards.
-        {"Simple jobs are often priced on the spot; either way you have a fixed-price quote within 48 hours."
-         if lane == 'standard' else
-         "Complex projects leave the consult with a clear design path &mdash; choose the service below that takes yours to a locked-scope fixed price."}</div>
-      </div></div>'''
-    tiers_html = ''
-    if lane == 'complex':
-        tier_default_img = {'working drawings':'substr.jpg','design pack':'render.jpg','landscape concept design':'finished.jpg'}
-        cards = ''
-        for t in r.get('design_service_tiers', []):
-            img = t.get('image') or tier_default_img.get(str(t.get('name','')).strip().lower(), 'render.jpg')
-            cards += (f'<div class="ds-card"><div class="ds-img"><img src="{I}{img}"></div>'
-                      f'<div class="ds-inner"><div class="nm">{t["name"]}</div><div class="desc">{t["description"]}</div>'
-                      f'<div class="pr">{fmt_money(t["price_ex_gst"])}+GST</div></div></div>')
-        if cards:
-            tiers_html = (f'<div class="ds-h">After the consult &middot; design service</div>'
-                          f'<div class="ds-sub">Your project is the detailed kind &mdash; these are the paths from consult to a locked-scope price. The consult fee credits against any of them.</div>'
-                          f'<div class="ds-cards">{cards}</div>')
+    agenda_html = ''.join(
+        f'<div style="display:flex;gap:2.5mm;align-items:baseline;padding:2mm 0;border-bottom:1px solid var(--rule);">'
+        f'<span style="font-family:\'EB Garamond\',Georgia,serif;font-weight:600;color:var(--mustard-deep);font-size:11pt;min-width:6mm;">{num}</span>'
+        f'<div style="font-size:9.5pt;"><strong>{h}</strong> &mdash; <span style="color:var(--grey);">{b}</span></div></div>'
+        for num, h, b in ASSESSMENT_AGENDA)
     stripe_html = (f'<div style="margin-top:2.5mm;"><span style="display:inline-block;background:var(--mustard-deep);color:#fff;'
                    f'padding:2.5mm 6mm;font-weight:700;font-size:10pt;">Book &amp; pay online &rarr; {stripe}</span></div>') if stripe else ''
-    contact_bits = ' &nbsp;&middot;&nbsp; '.join(x for x in [phone, email] if x)
     return f'''<div class="page">{head(f"Next Step &middot; {n:02d}")}<div class="pbody">
   <div class="eyebrow">Next step</div>
-  {title_html(d, "approval", 'See it <span class="mustard">in person.</span>')}
-  <p class="lead">This ballpark tells you if we&rsquo;re in the same conversation. One site consult turns it into a fixed price that doesn&rsquo;t move.</p>
+  {title_html(d, "approval", 'The Site <span class="mustard">Assessment.</span>')}
+  <p class="lead">This isn&rsquo;t another quote step &mdash; it&rsquo;s the start of your build. {fmt_money(fee_inc)}, credited in full. What 45 minutes on site covers:</p>
   {progress_track_html(ballpark=True)}
-  <div style="font-family:'EB Garamond',Georgia,serif;font-weight:600;font-size:12.5pt;margin-top:3mm;">Your next step</div>
-  <div class="appr-cards">{consult_card}</div>
-  {tiers_html}
-  <div class="accept-block" style="margin-top:5mm;"><div class="accept-text" style="font-size:10.5pt;">
-    <strong>Book your consult:</strong> reply to the email this came with{', call ' + phone if phone else ''}{', or write to ' + email if email else ''}.
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 7mm;margin-top:2mm;">{agenda_html}</div>
+  <p style="font-family:'EB Garamond',Georgia,serif;font-style:italic;font-size:11pt;margin-top:4mm;color:var(--ink);">A deck $5k cheaper on the wrong subframe isn&rsquo;t $5k saved &mdash; it&rsquo;s $15k spent on something that won&rsquo;t last.</p>
+  <div class="prelim-note" style="margin-top:3mm;"><div class="h">You walk away with</div>
+  <p style="margin:0;">A fixed price &mdash; most simple decks, on the spot. Site notes, yours to keep. Drawings and council approvals handled when your project calls for them. And you&rsquo;ll know how to read any deck quote in Perth &mdash; whoever you build with.</p></div>
+  <div class="accept-block" style="margin-top:3mm;"><div class="accept-text" style="font-size:10.5pt;">
+    <strong>Book your Site Assessment:</strong> reply to this email{', call ' + phone if phone else ''}{', or write to ' + email if email else ''}.
   </div></div>
   {stripe_html}
-  <p style="font-size:8.5pt;color:var(--grey);margin-top:4mm;">No obligation either way &mdash; if the range doesn&rsquo;t work for your budget, you&rsquo;ll know today instead of three quotes from now. This document is general guidance, not a fixed offer; final pricing is set at the site consult.</p>
+  <p style="font-size:8pt;color:var(--grey);margin-top:2mm;">No obligation either way &mdash; this range doesn&rsquo;t expire and nobody will chase you. General guidance only &mdash; final pricing is set at the Site Assessment.</p>
+{foot(n)}</div></div>'''
+
+def page_design_path_ballpark(d, n, status_label):
+    r = d['range']
+    bp = d.get('ballpark_next', {})
+    fee_inc = bp.get('consult_fee_inc_gst') or round(bp.get('consult_fee_ex_gst', 227) * 1.1)
+    contact = bp.get('contact', {})
+    phone = contact.get('phone', '')
+    email = contact.get('email', '')
+    tier_default_img = {'working drawings':'substr.jpg','design pack':'render.jpg','landscape concept design':'finished.jpg'}
+    cards = ''
+    for t in r.get('design_service_tiers', []):
+        img = t.get('image') or tier_default_img.get(str(t.get('name','')).strip().lower(), 'render.jpg')
+        cards += (f'<div class="ds-card"><div class="ds-img"><img src="{I}{img}"></div>'
+                  f'<div class="ds-inner"><div class="nm">{t["name"]}</div><div class="desc">{t["description"]}</div>'
+                  f'<div class="pr">{fmt_money(t["price_ex_gst"])}+GST</div></div></div>')
+    return f'''<div class="page">{head(f"Next Step &middot; {n:02d}")}<div class="pbody">
+  <div class="eyebrow">After the assessment</div>
+  <div class="title">The design <span class="mustard">path.</span></div>
+  <p class="lead">Projects like yours are the detailed kind &mdash; the ones where getting the plan right before the build is the difference between a good deck and the one you pictured. The assessment maps your site; one of these locks the scope and takes you to a fixed price. The {fmt_money(fee_inc)} credits against any of them.</p>
+  <div class="ds-cards">{cards}</div>
+  <p style="font-size:9pt;color:var(--grey);margin-top:3mm;">Why we work this way: complex projects priced without drawings get priced with padding &mdash; the builder\u2019s uncertainty becomes your cost. Drawings first means the number you sign is the number it takes.</p>
+  <div class="accept-block" style="margin-top:4mm;"><div class="accept-text" style="font-size:10.5pt;">
+    <strong>Book your Site Assessment:</strong> reply to the email this came with{', call ' + phone if phone else ''}{', or write to ' + email if email else ''}.
+  </div></div>
+  <p style="font-size:8pt;color:var(--grey);margin-top:2mm;">No obligation either way. General guidance only, not a fixed offer &mdash; final pricing is set at the Site Assessment.</p>
 {foot(n)}</div></div>'''
 
 def page_finance(d, n, status_label):
@@ -914,6 +884,54 @@ def pages_cost_range(d, n, status_label):
   </div>
   <div class="prelim-note"><div class="h">Preliminary &mdash; First pass</div>
   <p style="margin:0;">{r["preliminary_note"]}</p></div>'''
+
+    if d.get('ballpark'):
+        # Ballpark flavour: the number belongs to "a project like this", never
+        # to *your* project — the five site factors are what stand between the
+        # two, and the Site Assessment (next page) resolves them.
+        factors = [
+            ('01', 'Levels &amp; fall'),
+            ('02', 'Access to site'),
+            ('03', 'Ground &amp; subframe'),
+            ('04', 'Board &amp; direction'),
+            ('05', 'What&rsquo;s already there'),
+        ]
+        factors_html = ''.join(
+            f'<div style="display:flex;gap:2mm;align-items:baseline;">'
+            f'<span style="font-family:\'EB Garamond\',Georgia,serif;font-weight:600;color:var(--mustard-deep);font-size:10.5pt;">{num}</span>'
+            f'<div style="font-size:8.6pt;font-weight:600;">{h}</div></div>'
+            for num, h in factors)
+        factors_block = f'''<div style="margin-top:3.5mm;">
+    <div class="scope-h">The five things that will set <em>your</em> number</div>
+    <div style="display:flex;gap:6mm;flex-wrap:wrap;margin-top:1.5mm;">{factors_html}</div>
+    <p style="font-size:8.5pt;color:var(--grey);margin-top:2mm;">All five get answered at the Site Assessment &mdash; next page.</p>
+  </div>'''
+        if not multi:
+            return [f'''<div class="page">{head(f"The Ballpark &middot; {n:02d}")}<div class="pbody">
+  <div class="eyebrow">The Ballpark</div>
+  <div class="title">A project like this <span class="mustard">typically lands&hellip;</span></div>
+  <p class="lead">Built from the same rates as every job we price &mdash; not your number yet, because we haven&rsquo;t seen your site.</p>
+  {option_cards}
+  {alt_html}
+  {scope_block}
+  {factors_block}
+{foot(n)}</div></div>''']
+        # Deck + add-on cards: cards page first, then scope + factors.
+        page1 = f'''<div class="page">{head(f"The Ballpark &middot; {n:02d}")}<div class="pbody">
+  <div class="eyebrow">The Ballpark</div>
+  <div class="title">A project like this <span class="mustard">typically lands&hellip;</span></div>
+  <p class="lead">Built from the same rates as every job we price &mdash; not your number yet, because we haven&rsquo;t seen your site.</p>
+  {option_cards}
+  {alt_html}
+{foot(n)}</div></div>'''
+        page2 = f'''<div class="page">{head(f"The Ballpark &middot; {n+1:02d}")}<div class="pbody">
+  <div class="eyebrow">The Ballpark</div>
+  <div class="title">Scope <span class="mustard">&amp; what moves it.</span></div>
+  <p class="lead">What the ranges cover, and the five site factors that will set your number.</p>
+  {scope_block}
+  {factors_block}
+{foot(n+1)}</div></div>'''
+        return [page1, page2]
 
     if not multi:
         return [f'''<div class="page">{head(f"Cost Breakdown &middot; {n:02d}")}<div class="pbody">
@@ -1116,9 +1134,10 @@ def render(d, out_pdf):
     def on(key):
         return inc.get(key, True) is not False
     if d.get('ballpark'):
-        # Ballpark flavour: cover → why-a-range education page → range card →
-        # consult-value page (sells the site assessment — the doc's real CTA)
-        # → booking-focused next step. No signatures, no finance, no project run.
+        # Ballpark flavour: cover → why-a-range education page → range card(s)
+        # with the five-factor strip → Site Assessment agenda page (the doc's
+        # real CTA) → design-path page (complex lane only). No signatures,
+        # no finance, no project run.
         n = 1
         pages = [page_cover(d, n)]; n += 1
         if on('approach'):
@@ -1128,6 +1147,9 @@ def render(d, out_pdf):
         if on('consult_value'):
             pages.append(page_consult_value(d, n, status_label)); n += 1
         pages.append(page_next_step_ballpark(d, n, status_label)); n += 1
+        if (d.get('ballpark_next', {}).get('lane') == 'complex'
+                and d['range'].get('design_service_tiers')):
+            pages.append(page_design_path_ballpark(d, n, status_label)); n += 1
         DOC = "<!DOCTYPE html><html><head><meta charset='utf-8'>" + CSS + "</head><body>" + "".join(pages) + "</body></html>"
         HTML(string=DOC).write_pdf(out_pdf)
         return out_pdf
